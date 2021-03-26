@@ -31,7 +31,7 @@
 
 // OpenCV 4 App
 
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/Exceptions.hpp>
 #include "OpenCV102.hpp"
 #include <opencv2/highgui.hpp>
@@ -48,7 +48,7 @@ namespace Fsl
   {
     Mat image, gray, edge, cedge;
     // define a trackbar callback
-    void onTrackbar(int edgeThresh, void* data)
+    void onTrackbar(int edgeThresh, void* /*data*/)
     {
       blur(gray, edge, Size(3, 3));
       // Run the edge detector on grayscale

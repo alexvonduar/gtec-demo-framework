@@ -34,6 +34,8 @@
 #include <FslService/Impl/Foundation/Message/BasicMessage.hpp>
 #include <FslService/Impl/Registry/ServiceGroupId.hpp>
 #include <FslBase/Exceptions.hpp>
+#include <utility>
+
 
 namespace Fsl
 {
@@ -43,12 +45,13 @@ namespace Fsl
     std::exception_ptr Exception;
 
 
-    ThreadShutdownBasicMessage(const ServiceGroupId& id)
+    explicit ThreadShutdownBasicMessage(const ServiceGroupId& id)
       : Id(id)
     {
     }
 
 
+    // NOLINTNEXTLINE(modernize-pass-by-value)
     ThreadShutdownBasicMessage(const ServiceGroupId& id, const std::exception_ptr& exception)
       : Id(id)
       , Exception(exception)
@@ -56,7 +59,7 @@ namespace Fsl
     }
 
 
-    operator BasicMessage() const
+    operator BasicMessage() const    // NOLINT(google-explicit-constructor);
     {
       return BasicMessage(BasicMessageType::ThreadShutdown, static_cast<int32_t>(Id.GetValue()), Exception);
     }

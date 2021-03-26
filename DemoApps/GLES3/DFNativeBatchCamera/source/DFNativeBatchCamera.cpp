@@ -30,7 +30,7 @@
  ****************************************************************************************************************************************************/
 
 #include "DFNativeBatchCamera.hpp"
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslUtil/OpenGLES3/Exceptions.hpp>
 #include <FslUtil/OpenGLES3/GLCheck.hpp>
 #include <Shared/Camera/Platform/PlatformCameraSystem.hpp>
@@ -58,7 +58,7 @@ namespace Fsl
     }
     catch (const std::exception& ex)
     {
-      FSLLOG_WARNING("Failed to create camera render: " << ex.what());
+      FSLLOG3_WARNING("Failed to create camera render: {}", ex.what());
     }
   }
 
@@ -66,7 +66,7 @@ namespace Fsl
   DFNativeBatchCamera::~DFNativeBatchCamera() = default;
 
 
-  void DFNativeBatchCamera::Update(const DemoTime& demoTime)
+  void DFNativeBatchCamera::Update(const DemoTime& /*demoTime*/)
   {
   }
 
@@ -77,11 +77,11 @@ namespace Fsl
     glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-    const Point2 res = GetScreenResolution();
+    const PxSize2D resPx = GetWindowSizePx();
 
     if (m_cameraRender)
     {
-      m_cameraRender->Draw(demoTime, m_nativeBatch, res);
+      m_cameraRender->Draw(demoTime, m_nativeBatch, resPx);
     }
     else if (m_basic2D)
     {

@@ -30,18 +30,19 @@
  ****************************************************************************************************************************************************/
 
 #include "ColorspaceInfo.hpp"
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslDemoHost/EGL/Config/Service/IEGLHostInfo.hpp>
 #include <FslUtil/OpenGLES3/Exceptions.hpp>
 #include <FslUtil/OpenGLES3/GLCheck.hpp>
 #include <FslUtil/EGL/EGLUtil.hpp>
 #include <GLES3/gl3.h>
+#include <array>
 
 namespace Fsl
 {
   namespace
   {
-    const char* const g_pszEglColorspaceExtensions[] = {
+    const std::array<const char*, 7> g_eglColorspaceExtensions = {
       // https://www.khronos.org/registry/EGL/extensions/KHR/EGL_KHR_gl_colorspace.txt
       "EGL_KHR_gl_colorspace",
       // https://www.khronos.org/registry/EGL/extensions/EXT/EGL_EXT_gl_colorspace_bt2020_linear.txt
@@ -59,13 +60,13 @@ namespace Fsl
 
     };
 
-    const char* const g_pszEglColorspaceMetaDataExtensions[] = {
+    const std::array<const char*, 2> g_eglColorspaceMetaDataExtensions = {
       // https://www.khronos.org/registry/EGL/extensions/EXT/EGL_EXT_surface_SMPTE2086_metadata.txt
       "EGL_EXT_surface_SMPTE2086_metadata",
       // https://www.khronos.org/registry/EGL/extensions/EXT/EGL_EXT_surface_CTA861_3_metadata.txt
       "EGL_EXT_surface_CTA861_3_metadata"};
 
-    const char* const g_pszOtherExtensions[] = {
+    const std::array<const char*, 1> g_otherExtensions = {
       // https://www.khronos.org/registry/EGL/extensions/EXT/EGL_EXT_pixel_format_float.txt
       "EGL_EXT_pixel_format_float",
     };
@@ -77,27 +78,24 @@ namespace Fsl
     const auto eglHostInfo = config.DemoServiceProvider.Get<IEGLHostInfo>();
     const EGLDisplay eglDisplay = eglHostInfo->GetDisplay();
 
-    FSLLOG("Checking for EGL colorspace extensions");
-    std::size_t extCount = sizeof(g_pszEglColorspaceExtensions) / sizeof(char*);
-    for (std::size_t i = 0; i < extCount; ++i)
+    FSLLOG3_INFO("Checking for EGL colorspace extensions");
+    for (std::size_t i = 0; i < g_eglColorspaceExtensions.size(); ++i)
     {
-      FSLLOG("- " << g_pszEglColorspaceExtensions[i] << ": "
-                  << (EGLUtil::HasExtension(eglDisplay, g_pszEglColorspaceExtensions[i]) ? "Supported" : "Not supported"));
+      FSLLOG3_INFO("- {}: {}", g_eglColorspaceExtensions[i],
+                   EGLUtil::HasExtension(eglDisplay, g_eglColorspaceExtensions[i]) ? "Supported" : "Not supported");
     }
 
-    FSLLOG("Checking for colorspace meta data extensions");
-    extCount = sizeof(g_pszEglColorspaceMetaDataExtensions) / sizeof(char*);
-    for (std::size_t i = 0; i < extCount; ++i)
+    FSLLOG3_INFO("Checking for colorspace meta data extensions");
+    for (std::size_t i = 0; i < g_eglColorspaceMetaDataExtensions.size(); ++i)
     {
-      FSLLOG("- " << g_pszEglColorspaceMetaDataExtensions[i] << ": "
-                  << (EGLUtil::HasExtension(eglDisplay, g_pszEglColorspaceMetaDataExtensions[i]) ? "Supported" : "Not supported"));
+      FSLLOG3_INFO("- {}: {}", g_eglColorspaceMetaDataExtensions[i],
+                   EGLUtil::HasExtension(eglDisplay, g_eglColorspaceMetaDataExtensions[i]) ? "Supported" : "Not supported");
     }
 
-    FSLLOG("Checking for other relevant extensions");
-    extCount = sizeof(g_pszOtherExtensions) / sizeof(char*);
-    for (std::size_t i = 0; i < extCount; ++i)
+    FSLLOG3_INFO("Checking for other relevant extensions");
+    for (std::size_t i = 0; i < g_otherExtensions.size(); ++i)
     {
-      FSLLOG("- " << g_pszOtherExtensions[i] << ": " << (EGLUtil::HasExtension(eglDisplay, g_pszOtherExtensions[i]) ? "Supported" : "Not supported"));
+      FSLLOG3_INFO("- {}: {}", g_otherExtensions[i], EGLUtil::HasExtension(eglDisplay, g_otherExtensions[i]) ? "Supported" : "Not supported");
     }
 
     // Close the app

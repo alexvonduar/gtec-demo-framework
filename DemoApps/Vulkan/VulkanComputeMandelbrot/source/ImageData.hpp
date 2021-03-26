@@ -32,14 +32,13 @@
  ****************************************************************************************************************************************************/
 
 #include <FslBase/BasicTypes.hpp>
-#include <FslBase/Noncopyable.hpp>
 #include <FslGraphics/Bitmap/RawBitmapEx.hpp>
 #include <vulkan/vulkan.h>
 #include <vector>
 
 namespace Fsl
 {
-  class ImageData : Noncopyable
+  class ImageData
   {
     std::vector<uint8_t> m_data;
     mutable std::vector<std::size_t> m_scratchpadAllOffsets;
@@ -48,10 +47,13 @@ namespace Fsl
     VkFormat m_format;
     uint32_t m_mipLevels;
     uint32_t m_arrayLayers;
-    uint32_t m_tmpSize{};
+    // uint32_t m_tmpSize{};
     uint32_t m_bytesPerPixel{};
 
   public:
+    ImageData(const ImageData&) = delete;
+    ImageData& operator=(const ImageData&) = delete;
+
     // move assignment operator
     ImageData& operator=(ImageData&& other) noexcept;
     // move constructor
@@ -60,12 +62,12 @@ namespace Fsl
 
     ImageData();
     ImageData(const uint32_t width, const uint32_t height, const uint32_t depth, const VkImageType imageType, const VkFormat format);
-    ~ImageData();
+    ~ImageData() noexcept;
 
 
     void Reset() noexcept;
 
-    bool IsValid() const;
+    bool IsValid() const noexcept;
 
     VkFormat GetPixelFormat() const
     {
@@ -97,18 +99,21 @@ namespace Fsl
 
 
     //! Provides direct access to the scoped bitmap during its lifetime.
-    class ScopedRawBitmapAccess : private Noncopyable
+    class ScopedRawBitmapAccess
     {
       const ImageData* m_pImageData1;
       // ImageData* m_pImageData2;
-      RawBitmapEx* m_pRawBitmapEx;
+      // RawBitmapEx* m_pRawBitmapEx;
 
     public:
+      ScopedRawBitmapAccess(const ScopedRawBitmapAccess&) = delete;
+      ScopedRawBitmapAccess& operator=(const ScopedRawBitmapAccess&) = delete;
+
       // Read only lock
       ScopedRawBitmapAccess(const ImageData& imageData, RawBitmap& rRawBitmap)
         : m_pImageData1(&imageData)
-        //, m_pImageData2(nullptr)
-        , m_pRawBitmapEx(nullptr)
+      //, m_pImageData2(nullptr)
+      //, m_pRawBitmapEx(nullptr)
       {
         rRawBitmap = imageData.Lock();
       }

@@ -34,13 +34,13 @@
 #include "VulkanNativeWindowAndroid.hpp"
 #include <FslNativeWindow/Vulkan/NativeVulkanSetup.hpp>
 #include <FslNativeWindow/Platform/Android/PlatformNativeWindowSystemAndroidTag.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslGraphics/Exceptions.hpp>
 #include <RapidVulkan/Check.hpp>
 
 
 #if 1
-#define LOCAL_LOG(X) FSLLOG("VulkanNativeWindowSystemAndroid: " << X)
+#define LOCAL_LOG(X) FSLLOG3_INFO("VulkanNativeWindowSystemAndroid: {}", (X))
 #else
 #define LOCAL_LOG(X) \
   {                  \
@@ -62,14 +62,6 @@ namespace Fsl
 
       return std::make_shared<VulkanNativeWindowAndroid>(nativeWindowSetup, windowParams, pPlatformCustomWindowAllocationParams);
     }
-
-    NativeVulkanSetup ToNativeVulkanSetup(const PlatformNativeWindowAllocationParams* const pPlatformCustomWindowAllocationParams)
-    {
-      const auto pNativeSetup = dynamic_cast<const NativeVulkanSetup*>(pPlatformCustomWindowAllocationParams);
-      if (!pNativeSetup)
-        throw NotSupportedException("NativeVulkanSetup pointer expected");
-      return *pNativeSetup;
-    }
   }    // namespace
 
 
@@ -81,20 +73,17 @@ namespace Fsl
 
   VulkanNativeWindowAndroid::VulkanNativeWindowAndroid(const NativeWindowSetup& nativeWindowSetup, const PlatformNativeWindowParams& windowParams,
                                                        const PlatformNativeWindowAllocationParams* const pPlatformCustomWindowAllocationParams)
-    : AVulkanNativeWindow(ToNativeVulkanSetup(pPlatformCustomWindowAllocationParams))
-    , PlatformNativeWindowAndroid(nativeWindowSetup, windowParams, pPlatformCustomWindowAllocationParams)
+    : VulkanNativeWindow<PlatformNativeWindowAndroid>(nativeWindowSetup, windowParams, pPlatformCustomWindowAllocationParams)
   {
     VkAndroidSurfaceCreateInfoKHR surfaceCreateInfoKHR{};
     surfaceCreateInfoKHR.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
     surfaceCreateInfoKHR.window = GetPlatformWindow();
 
-    RAPIDVULKAN_CHECK(vkCreateAndroidSurfaceKHR(m_instance, &surfaceCreateInfoKHR, nullptr, &m_surface));
+    RAPIDVULKAN_CHECK(vkCreateAndroidSurfaceKHR(m_setup.Instance, &surfaceCreateInfoKHR, nullptr, &m_surface));
   }
 
 
-  VulkanNativeWindowAndroid::~VulkanNativeWindowAndroid()
-  {
-  }
+  VulkanNativeWindowAndroid::~VulkanNativeWindowAndroid() = default;
 
 
   PlatformNativeWindowType VulkanNativeWindowAndroid::GetWindowType() const

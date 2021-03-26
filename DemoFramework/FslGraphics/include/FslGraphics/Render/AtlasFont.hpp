@@ -31,21 +31,23 @@
  *
  ****************************************************************************************************************************************************/
 
-#include <FslBase/Noncopyable.hpp>
-#include <FslGraphics/Render/Texture2D.hpp>
 #include <FslGraphics/Font/TextureAtlasBitmapFont.hpp>
+#include <FslGraphics/Render/BaseTexture2D.hpp>
 
 namespace Fsl
 {
-  class AtlasFont : private Noncopyable
+  class AtlasFont
   {
-    const Texture2D m_atlasTexture;
+    const BaseTexture2D m_atlasTexture;
     const TextureAtlasBitmapFont m_textureAtlasBitmapFont;
 
   public:
-    AtlasFont(const Texture2D& atlasTexture, TextureAtlasBitmapFont textureAtlasBitmapFont);
+    AtlasFont(const AtlasFont&) = delete;
+    AtlasFont& operator=(const AtlasFont&) = delete;
 
-    const Texture2D& GetAtlasTexture() const
+    AtlasFont(const BaseTexture2D& atlasTexture, TextureAtlasBitmapFont textureAtlasBitmapFont);
+
+    const BaseTexture2D& GetAtlasTexture() const
     {
       return m_atlasTexture;
     }
@@ -55,15 +57,16 @@ namespace Fsl
       return m_textureAtlasBitmapFont;
     }
 
-    Point2 MeasureString(const char* const psz) const
+    //! @brief Measure the string size in pixels
+    PxSize2D MeasureString(const StringViewLite& strView) const
     {
-      return m_textureAtlasBitmapFont.MeasureString(psz);
+      return m_textureAtlasBitmapFont.MeasureString(strView);
     }
 
-
-    Point2 MeasureString(const char* const pStr, const int32_t startIndex, const int32_t length) const
+    //! @brief Measure the string size in pixels taking into account the font config
+    PxSize2D MeasureString(const StringViewLite& strView, const BitmapFontConfig& fontConfig) const
     {
-      return m_textureAtlasBitmapFont.MeasureString(pStr, startIndex, length);
+      return m_textureAtlasBitmapFont.MeasureString(strView, fontConfig);
     }
   };
 }

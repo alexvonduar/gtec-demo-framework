@@ -30,13 +30,15 @@
  ****************************************************************************************************************************************************/
 
 #include "NativeWindowTest.hpp"
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/UncheckedNumericCast.hpp>
+#include <FslUtil/Vulkan1_0/TypeConverter.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
+#include <FslBase/Log/Math/Pixel/FmtPxPoint2.hpp>
 #include <FslBase/Exceptions.hpp>
 #include <FslNativeWindow/Vulkan/IVulkanNativeWindow.hpp>
 #include <FslUtil/Vulkan1_0/Exceptions.hpp>
 #include <FslUtil/Vulkan1_0/Log/All.hpp>
 #include <FslUtil/Vulkan1_0/SurfaceFormatInfo.hpp>
-#include <FslUtil/Vulkan1_0/Util/ConvertUtil.hpp>
 #include <FslUtil/Vulkan1_0/Util/SwapchainKHRUtil.hpp>
 #include <RapidVulkan/Check.hpp>
 #include <RapidVulkan/Debug/Strings/VkCompositeAlphaFlagBitsKHR.hpp>
@@ -45,6 +47,7 @@
 #include <vulkan/vulkan.h>
 // Included last as a workaround to ensure all types are found
 #include <FslUtil/Vulkan1_0/Debug/BitFlags.hpp>
+#include <fmt/ostream.h>
 #include <sstream>
 
 
@@ -63,19 +66,19 @@ namespace Fsl
 
     void LogSurfaceCapabilities(const VkSurfaceCapabilitiesKHR& surfaceCapabilities)
     {
-      FSLLOG("- surfaceCapabilities.minImageCount: " << surfaceCapabilities.minImageCount);
-      FSLLOG("- surfaceCapabilities.maxImageCount: " << surfaceCapabilities.maxImageCount);
-      FSLLOG("- surfaceCapabilities.currentExtent: " << surfaceCapabilities.currentExtent);
-      FSLLOG("- surfaceCapabilities.minImageExtent: " << surfaceCapabilities.minImageExtent);
-      FSLLOG("- surfaceCapabilities.maxImageExtent: " << surfaceCapabilities.maxImageExtent);
-      FSLLOG("- surfaceCapabilities.maxImageArrayLayers: " << surfaceCapabilities.maxImageArrayLayers);
-      FSLLOG("- surfaceCapabilities.supportedTransforms: "
-             << Vulkan::Debug::GetBitflagsString(static_cast<VkSurfaceTransformFlagBitsKHR>(surfaceCapabilities.supportedTransforms)));
-      FSLLOG("- surfaceCapabilities.currentTransform: " << Vulkan::Debug::GetBitflagsString(surfaceCapabilities.currentTransform));
-      FSLLOG("- surfaceCapabilities.supportedCompositeAlpha: "
-             << Vulkan::Debug::GetBitflagsString(static_cast<VkCompositeAlphaFlagBitsKHR>(surfaceCapabilities.supportedCompositeAlpha)));
-      FSLLOG("- surfaceCapabilities.supportedUsageFlags: "
-             << Vulkan::Debug::GetBitflagsString(static_cast<VkImageUsageFlagBits>(surfaceCapabilities.supportedUsageFlags)));
+      FSLLOG3_INFO("- surfaceCapabilities.minImageCount: {}", surfaceCapabilities.minImageCount);
+      FSLLOG3_INFO("- surfaceCapabilities.maxImageCount: {}", surfaceCapabilities.maxImageCount);
+      FSLLOG3_INFO("- surfaceCapabilities.currentExtent: {}", surfaceCapabilities.currentExtent);
+      FSLLOG3_INFO("- surfaceCapabilities.minImageExtent: {}", surfaceCapabilities.minImageExtent);
+      FSLLOG3_INFO("- surfaceCapabilities.maxImageExtent: {}", surfaceCapabilities.maxImageExtent);
+      FSLLOG3_INFO("- surfaceCapabilities.maxImageArrayLayers: {}", surfaceCapabilities.maxImageArrayLayers);
+      FSLLOG3_INFO("- surfaceCapabilities.supportedTransforms: {}",
+                   Vulkan::Debug::GetBitflagsString(static_cast<VkSurfaceTransformFlagBitsKHR>(surfaceCapabilities.supportedTransforms)));
+      FSLLOG3_INFO("- surfaceCapabilities.currentTransform: {}", Vulkan::Debug::GetBitflagsString(surfaceCapabilities.currentTransform));
+      FSLLOG3_INFO("- surfaceCapabilities.supportedCompositeAlpha: {}",
+                   Vulkan::Debug::GetBitflagsString(static_cast<VkCompositeAlphaFlagBitsKHR>(surfaceCapabilities.supportedCompositeAlpha)));
+      FSLLOG3_INFO("- surfaceCapabilities.supportedUsageFlags: {}",
+                   Vulkan::Debug::GetBitflagsString(static_cast<VkImageUsageFlagBits>(surfaceCapabilities.supportedUsageFlags)));
     }
 
     void CheckPhysicalDeviceSurfaceCapabilitiesPreSwapchain(const VkPhysicalDevice physicalDevice, const VkSurfaceKHR surface,
@@ -108,7 +111,7 @@ namespace Fsl
 
 
     void CheckPhysicalDeviceSurfaceCapabilitiesPostSwapchain(const VkPhysicalDevice physicalDevice, const VkSurfaceKHR surface,
-                                                             const VkExtent2D windowExtent, const bool swapchainDependentSurface)
+                                                             const VkExtent2D windowExtent, const bool /*swapchainDependentSurface*/)
     {
       VkSurfaceCapabilitiesKHR surfaceCapabilities{};
       RAPIDVULKAN_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCapabilities));
@@ -128,30 +131,30 @@ namespace Fsl
   NativeWindowTest::NativeWindowTest(const DemoAppConfig& config)
     : VulkanWindowDemoApp(config)
   {
-    auto windowExtent = Vulkan::ConvertUtil::Convert(GetScreenExtent());
-    Point2 actualSize;
+    auto windowExtent = TypeConverter::UncheckedTo<VkExtent2D>(GetScreenExtent());
+    PxPoint2 actualSize;
     if (GetNativeWindow()->TryGetActualSize(actualSize))
     {
-      if (static_cast<uint32_t>(actualSize.X) != windowExtent.width)
+      if (UncheckedNumericCast<uint32_t>(actualSize.X) != windowExtent.width)
       {
-        FSLLOG_WARNING("actual native window width does not match reported width: " << actualSize.X << " != " << windowExtent.width);
+        FSLLOG3_WARNING("actual native window width does not match reported width: {} != {}", actualSize.X, windowExtent.width);
       }
-      if (static_cast<uint32_t>(actualSize.Y) != windowExtent.height)
+      if (UncheckedNumericCast<uint32_t>(actualSize.Y) != windowExtent.height)
       {
-        FSLLOG_WARNING("actual native window height does not match reported height: " << actualSize.Y << " != " << windowExtent.height);
+        FSLLOG3_WARNING("actual native window height does not match reported height: {} != {}", actualSize.Y, windowExtent.height);
       }
     }
     else
     {
-      FSLLOG_WARNING("TryGetActualSize not supported");
+      FSLLOG3_WARNING("TryGetActualSize not supported");
     }
 
-    FSLLOG("WindowExtent: " << windowExtent);
+    FSLLOG3_INFO("WindowExtent: {}", windowExtent);
 
-    FSLLOG("Checking surface capabilities pre-swapchain creation");
+    FSLLOG3_INFO("Checking surface capabilities pre-swapchain creation");
     CheckPhysicalDeviceSurfaceCapabilitiesPreSwapchain(m_physicalDevice.Device, m_surface, windowExtent, SWAPCHAIN_DEPENDENT_SURFACE);
 
-    FSLLOG("Creating swapchain");
+    FSLLOG3_INFO("Creating swapchain");
 
     const VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
     const VkImageUsageFlags desiredImageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
@@ -160,10 +163,10 @@ namespace Fsl
       m_physicalDevice.Device, m_device.Get(), 0, m_surface, DESIRED_MIN_SWAP_BUFFER_COUNT, 1, desiredImageUsageFlags, VK_SHARING_MODE_EXCLUSIVE, 0,
       nullptr, VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR, presentMode, VK_TRUE, VK_NULL_HANDLE, windowExtent, Vulkan::SurfaceFormatInfo());
 
-    FSLLOG("Checking surface capabilities post-swapchain creation");
+    FSLLOG3_INFO("Checking surface capabilities post-swapchain creation");
     CheckPhysicalDeviceSurfaceCapabilitiesPostSwapchain(m_physicalDevice.Device, m_surface, windowExtent, SWAPCHAIN_DEPENDENT_SURFACE);
 
-    FSLLOG("\n*** Checks completed successfully ***\n");
+    FSLLOG3_INFO("\n*** Checks completed successfully ***\n");
     GetDemoAppControl()->RequestExit();
   }
 }

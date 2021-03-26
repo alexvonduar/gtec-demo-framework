@@ -39,15 +39,16 @@ from FslBuildGen import Main as MainFlow
 #from FslBuildGen import PackageListUtil
 #from FslBuildGen.DataTypes import BuildRecipeValidateCommand
 #from FslBuildGen.DataTypes import BuildRecipeValidateMethod
-from FslBuildGen.Generator import PluginConfig
 from FslBuildGen import PluginSharedValues
+from FslBuildGen.Build.BuildVariantConfigUtil import BuildVariantConfigUtil
 from FslBuildGen.BuildExternal import RecipeBuilder
 from FslBuildGen.BuildExternal.BuilderConfig import BuilderConfig
 from FslBuildGen.Config import Config
 from FslBuildGen.Context.GeneratorContext import GeneratorContext
-from FslBuildGen.Log import Log
-from FslBuildGen.PackageConfig import PlatformNameString
-from FslBuildGen.PackageFilters import PackageFilters
+#from FslBuildGen.Generator import PluginConfig
+#from FslBuildGen.Log import Log
+#from FslBuildGen.PackageConfig import PlatformNameString
+#from FslBuildGen.PackageFilters import PackageFilters
 from FslBuildGen.Tool.AToolAppFlow import AToolAppFlow
 from FslBuildGen.Tool.AToolAppFlowFactory import AToolAppFlowFactory
 from FslBuildGen.Tool.ToolAppConfig import ToolAppConfig
@@ -84,8 +85,8 @@ def GetDefaultLocalConfig() -> LocalToolConfig:
 
 
 class ToolFlowBuildExternal(AToolAppFlow):
-    def __init__(self, toolAppContext: ToolAppContext) -> None:
-        super().__init__(toolAppContext)
+    #def __init__(self, toolAppContext: ToolAppContext) -> None:
+    #    super().__init__(toolAppContext)
 
 
     def ProcessFromCommandLine(self, args: Any, currentDirPath: str, toolConfig: ToolConfig, userTag: Optional[object]) -> None:
@@ -112,14 +113,17 @@ class ToolFlowBuildExternal(AToolAppFlow):
 
         packageFilters = localToolConfig.BuildPackageFilters
 
-        platform = PluginConfig.GetGeneratorPluginById(localToolConfig.PlatformName, localToolConfig.Generator, False,
-                                                       config.ToolConfig.CMakeConfiguration, localToolConfig.GetUserCMakeConfig())
+        buildVariantConfig = BuildVariantConfigUtil.GetBuildVariantConfig(localToolConfig.BuildVariantsDict)
+        platform = self.ToolAppContext.PluginConfigContext.GetGeneratorPluginById(localToolConfig.PlatformName, localToolConfig.Generator,
+                                                                                  buildVariantConfig, config.ToolConfig.DefaultPackageLanguage,
+                                                                                  config.ToolConfig.CMakeConfiguration,
+                                                                                  localToolConfig.GetUserCMakeConfig(), False)
         theFiles = [] # type: List[str]
         if not localToolConfig.VoidBuild:
             theFiles = MainFlow.DoGetFiles(config, toolConfig.GetMinimalConfig(), currentDirPath, localToolConfig.Recursive)
         else:
             self.Log.LogPrintVerbose(1, "Doing a void build")
-        generatorContext = GeneratorContext(config, packageFilters.RecipeFilterManager, config.ToolConfig.Experimental, platform)
+        generatorContext = GeneratorContext(config, self.ErrorHelpManager, packageFilters.RecipeFilterManager, config.ToolConfig.Experimental, platform)
         packages = MainFlow.DoGetPackages(generatorContext, config, theFiles, packageFilters)
         #packages = DoExperimentalGetRecipes(generatorContext, config, [])
         #topLevelPackage = PackageListUtil.GetTopLevelPackage(packages)
@@ -132,7 +136,7 @@ class ToolFlowBuildExternal(AToolAppFlow):
         builderConfig.Settings.ForceClaimInstallArea = localToolConfig.ForceClaimInstallArea
         builderConfig.Settings.BuildThreads = localToolConfig.BuildThreads
 
-        RecipeBuilder.BuildPackages(config, generatorContext, builderConfig, packages)
+        RecipeBuilder.BuildPackages(self.Log, config.SDKPath, config.IsDryRun, config.ToolConfig, generatorContext, builderConfig, packages)
 
         #topLevelPackage = PackageListUtil.GetTopLevelPackage(packages)
         #for package in topLevelPackage.ResolvedExperimentalRecipeBuildOrder:
@@ -177,8 +181,8 @@ class ToolFlowBuildExternal(AToolAppFlow):
 
 
 class ToolAppFlowFactory(AToolAppFlowFactory):
-    def __init__(self) -> None:
-        pass
+    #def __init__(self) -> None:
+    #    pass
 
 
     def GetTitle(self) -> str:
@@ -188,6 +192,7 @@ class ToolAppFlowFactory(AToolAppFlowFactory):
     def GetToolCommonArgConfig(self) -> ToolCommonArgConfig:
         argConfig = ToolCommonArgConfig()
         argConfig.AddPlatformArg = True
+        argConfig.AddGeneratorSelection = True
         argConfig.ProcessRemainingArgs = False
         #argConfig.AllowVSVersion = True
         argConfig.AllowForceClaimInstallArea = True

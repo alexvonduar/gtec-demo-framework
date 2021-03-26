@@ -29,7 +29,7 @@
  *
  ****************************************************************************************************************************************************/
 
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslNativeWindow/Base/NativeWindowEventHelper.hpp>
 #include <FslDemoApp/Base/Service/Events/Basic/MouseButtonEvent.hpp>
 #include <FslDemoApp/Base/Service/Events/Basic/MouseMoveEvent.hpp>
@@ -64,8 +64,8 @@ namespace Fsl
   MouseState MouseService::GetState()
   {
     const auto rawPosition = m_rawPosition;
-    m_rawPosition = Point2();
-    return MouseState(m_buttonState, m_position, rawPosition);
+    m_rawPosition = {};
+    return {m_buttonState, m_position, rawPosition};
   }
 
 
@@ -93,8 +93,8 @@ namespace Fsl
 
   void MouseService::OnMouseButton(const NativeWindowEvent& event)
   {
-    VirtualMouseButton::Enum button;
-    bool isPressed;
+    VirtualMouseButton::Enum button = VirtualMouseButton::Undefined;
+    bool isPressed = false;
     NativeWindowEventHelper::DecodeInputMouseButtonEvent(event, button, isPressed, m_position);
 
     if (isPressed)
@@ -131,13 +131,13 @@ namespace Fsl
     }
 
     m_eventPoster->Post(MouseMoveEvent(m_position, mouseButtonFlags));
-    // FSLLOG("X: " << m_position.X << " Y: " << m_position.Y);
+    // FSLLOG3_INFO("X: {} Y: {}", m_position.X, m_position.Y);
   }
 
 
   void MouseService::OnMouseWheel(const NativeWindowEvent& event)
   {
-    int32_t delta;
+    int32_t delta = 0;
     NativeWindowEventHelper::DecodeInputMouseWheelEvent(event, delta, m_position);
 
     m_eventPoster->Post(MouseWheelEvent(delta, m_position));
@@ -146,7 +146,7 @@ namespace Fsl
 
   void MouseService::OnRawMouseMove(const NativeWindowEvent& event)
   {
-    Point2 newRawPosition;
+    PxPoint2 newRawPosition;
     VirtualMouseButtonFlags mouseButtonFlags;
     NativeWindowEventHelper::DecodeInputRawMouseMoveEvent(event, newRawPosition, mouseButtonFlags);
 
@@ -154,7 +154,7 @@ namespace Fsl
     //  mouseButtonFlags = m_buttonState;
 
     m_eventPoster->Post(RawMouseMoveEvent(newRawPosition, mouseButtonFlags));
-    // FSLLOG("RawX: " << m_rawPosition.X << " RawY: " << m_rawPosition.Y);
+    // FSLLOG3_INFO("RawX: {} RawY: {}", m_rawPosition.X, m_rawPosition.Y);
 
     m_rawPosition += newRawPosition;
   }

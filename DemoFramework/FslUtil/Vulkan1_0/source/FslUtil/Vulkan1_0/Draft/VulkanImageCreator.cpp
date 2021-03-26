@@ -30,14 +30,14 @@
  ****************************************************************************************************************************************************/
 
 #include <FslUtil/Vulkan1_0/Draft/VulkanImageCreator.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslGraphics/Bitmap/Bitmap.hpp>
 #include <FslGraphics/Bitmap/RawBitmap.hpp>
 #include <FslGraphics/Bitmap/RawCubeBitmap.hpp>
 #include <FslGraphics/Texture/RawTexture.hpp>
 #include <FslGraphics/Texture/Texture.hpp>
 #include <FslUtil/Vulkan1_0/Draft/VulkanImageCreatorUtil.hpp>
-#include <FslUtil/Vulkan1_0/Util/ConvertUtil.hpp>
+#include <FslUtil/Vulkan1_0/Util/VulkanConvert.hpp>
 #include <cassert>
 #include <limits>
 #include <utility>
@@ -64,13 +64,29 @@ namespace Fsl
         imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         imageViewCreateInfo.flags = 0;
         imageViewCreateInfo.image = image;
-        imageViewCreateInfo.viewType = ConvertUtil::ToImageViewType(textureType);
+        imageViewCreateInfo.viewType = VulkanConvert::ToVkImageViewType(textureType);
         imageViewCreateInfo.format = imageFormat;
         imageViewCreateInfo.components = {VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
                                           VK_COMPONENT_SWIZZLE_IDENTITY};
         imageViewCreateInfo.subresourceRange = imageSubresourceRange;
 
         return ImageView(device, imageViewCreateInfo);
+      }
+
+      inline TextureInfo GetTextureInfo(const RawBitmap& src)
+      {
+        return {1u, 1u, 1u};
+      }
+
+      inline TextureInfo GetTextureInfo(const Bitmap& src)
+      {
+        return {1u, 1u, 1u};
+      }
+
+      template <typename T>
+      inline TextureInfo GetTextureInfo(const T& src)
+      {
+        return src.GetTextureInfo();
       }
 
       template <typename T>
@@ -85,8 +101,7 @@ namespace Fsl
         VulkanImageCreatorUtil::Create(image, memory, physicalDevice, rCommandBuffer.GetDevice(), queue, rCommandBuffer.Get(), src, accessMask,
                                        imageUsageFlags);
 
-        const TextureInfo info(1, 1, 1);
-        auto imageView = CreateImageView(rCommandBuffer.GetDevice(), image.Get(), image.GetFormat(), textureType, info);
+        auto imageView = CreateImageView(rCommandBuffer.GetDevice(), image.Get(), image.GetFormat(), textureType, GetTextureInfo(src));
 
         return VUImageMemoryView(std::move(image), std::move(memory), std::move(imageView), name);
       }

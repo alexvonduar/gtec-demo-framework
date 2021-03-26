@@ -30,10 +30,10 @@
  ****************************************************************************************************************************************************/
 
 #include <FslUtil/Vulkan1_0/Util/ScreenshotUtil.hpp>
-#include <FslUtil/Vulkan1_0/Util/ConvertUtil.hpp>
 #include <FslUtil/Vulkan1_0/Util/MemoryTypeUtil.hpp>
+#include <FslUtil/Vulkan1_0/Util/VulkanConvert.hpp>
 #include <FslUtil/Vulkan1_0/VUScopedMapMemory.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/Exceptions.hpp>
 #include <FslGraphics/PixelFormatUtil.hpp>
 #include <RapidVulkan/CommandBuffer.hpp>
@@ -173,7 +173,7 @@ namespace Fsl
 
         Bitmap ExtractToBitmap(const ImageRecord& image, const PixelFormat imagePixelFormat)
         {
-          const auto device = image.TheImage.GetDevice();
+          const VkDevice device = image.TheImage.GetDevice();
 
           // Get information about the image layout
           VkImageSubresource subResource{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0};
@@ -198,7 +198,7 @@ namespace Fsl
           assert(subResourceLayout.offset <= image.AllocationSize);
 
           const uint8_t* pImageMemory = static_cast<const uint8_t*>(pImage) + subResourceLayout.offset;
-          const Extent2D extent(image.Extent.width, image.Extent.height);
+          const PxExtent2D extent(image.Extent.width, image.Extent.height);
           assert(subResourceLayout.rowPitch <= std::numeric_limits<uint32_t>::max());
           const auto stride = static_cast<uint32_t>(subResourceLayout.rowPitch);
 
@@ -214,39 +214,39 @@ namespace Fsl
       {
         if (physicalDevice == VK_NULL_HANDLE)
         {
-          FSLLOG_DEBUG_WARNING("Invalid physicalDevice, capture cancelled");
+          FSLLOG3_DEBUG_WARNING("Invalid physicalDevice, capture cancelled");
           return Bitmap();
         }
         if (device == VK_NULL_HANDLE)
         {
-          FSLLOG_DEBUG_WARNING("Invalid device, capture cancelled");
+          FSLLOG3_DEBUG_WARNING("Invalid device, capture cancelled");
           return Bitmap();
         }
         if (queue == VK_NULL_HANDLE)
         {
-          FSLLOG_DEBUG_WARNING("Invalid queue, capture cancelled");
+          FSLLOG3_DEBUG_WARNING("Invalid queue, capture cancelled");
           return Bitmap();
         }
         if (srcImage == VK_NULL_HANDLE)
         {
-          FSLLOG_DEBUG_WARNING("Invalid srcImage, capture cancelled");
+          FSLLOG3_DEBUG_WARNING("Invalid srcImage, capture cancelled");
           return Bitmap();
         }
         if ((srcImageUsageFormats & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) == 0u)
         {
-          FSLLOG_DEBUG_WARNING("srcImageUsageFormats did not support VK_IMAGE_USAGE_TRANSFER_SRC_BIT, capture cancelled");
+          FSLLOG3_DEBUG_WARNING("srcImageUsageFormats did not support VK_IMAGE_USAGE_TRANSFER_SRC_BIT, capture cancelled");
           return Bitmap();
         }
         if (srcImageFormat == VK_FORMAT_UNDEFINED)
         {
-          FSLLOG_DEBUG_WARNING("Invalid srcImageFormat, capture cancelled");
+          FSLLOG3_DEBUG_WARNING("Invalid srcImageFormat, capture cancelled");
           return Bitmap();
         }
 
-        auto pixelFormat = ConvertUtil::Convert(srcImageFormat);
+        auto pixelFormat = VulkanConvert::ToPixelFormat(srcImageFormat);
         if (PixelFormatUtil::IsCompressed(pixelFormat))
         {
-          FSLLOG_WARNING("srcPixelFormat is compressed, capture cancelled");
+          FSLLOG3_WARNING("srcPixelFormat is compressed, capture cancelled");
           return Bitmap();
         }
         // We use the same format as the source image as the copy command dont convert it for us
@@ -255,7 +255,7 @@ namespace Fsl
         // We wait for the device to be idle before we start capturing
         if (vkDeviceWaitIdle(device) != VK_SUCCESS)
         {
-          FSLLOG_DEBUG_WARNING("Failed to wait for device idle, capture cancelled");
+          FSLLOG3_DEBUG_WARNING("Failed to wait for device idle, capture cancelled");
           return Bitmap();
         }
 
@@ -323,7 +323,7 @@ namespace Fsl
         }
         catch (const std::exception& ex)
         {
-          FSLLOG2(LogType::Verbose2, ex.what());
+          FSLLOG3_VERBOSE2(ex.what());
           return Bitmap();
         }
       }

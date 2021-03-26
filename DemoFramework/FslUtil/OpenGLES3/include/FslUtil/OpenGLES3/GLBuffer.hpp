@@ -35,7 +35,6 @@
 #include <FslUtil/OpenGLES3/Common.hpp>
 #include <FslBase/Attributes.hpp>
 #include <FslBase/BasicTypes.hpp>
-#include <FslBase/Noncopyable.hpp>
 #include <FslUtil/OpenGLES3/GLValues.hpp>
 #include <cstdlib>
 #include <GLES3/gl3.h>
@@ -129,7 +128,7 @@ namespace Fsl
 
       //! @brief Get the gl handle associated with the buffer.
       //! @return the handle or GLValues::INVALID_HANDLE if the buffer is unallocated.
-      FSL_ATTR_DEPRECATED GLuint GetHandle() const
+      [[deprecated("use one of the other overloads instead")]] GLuint GetHandle() const
       {
         return m_handle;
       }

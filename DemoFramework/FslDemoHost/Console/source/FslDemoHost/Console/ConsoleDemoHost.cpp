@@ -30,14 +30,13 @@
  ****************************************************************************************************************************************************/
 
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslDemoApp/Shared/Host/DemoHostFeatureUtil.hpp>
 #include <FslDemoHost/Console/ConsoleDemoHost.hpp>
 #include <FslDemoHost/Console/ConsoleDemoHostOptionParser.hpp>
 #include <FslNativeWindow/Base/INativeWindowEventQueue.hpp>
 #include <FslNativeWindow/Base/NativeWindowEventHelper.hpp>
 #include <cassert>
-#include <iostream>
 #include <vector>
 
 namespace Fsl
@@ -93,10 +92,10 @@ namespace Fsl
   }
 
 
-  Point2 ConsoleDemoHost::GetScreenResolution() const
+  DemoWindowMetrics ConsoleDemoHost::GetWindowMetrics() const
   {
     // FIX: this is the only real invalid data that we return
-    return Point2(0, 0);
+    return {};
   }
 
 

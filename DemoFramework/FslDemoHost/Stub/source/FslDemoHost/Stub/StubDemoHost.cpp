@@ -30,7 +30,7 @@
  ****************************************************************************************************************************************************/
 
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslDemoApp/Shared/Host/DemoHostFeatureUtil.hpp>
 #include <FslDemoHost/Stub/StubDemoHost.hpp>
 #include <FslDemoHost/Stub/StubDemoHostOptionParser.hpp>
@@ -93,10 +93,10 @@ namespace Fsl
   }
 
 
-  Point2 StubDemoHost::GetScreenResolution() const
+  DemoWindowMetrics StubDemoHost::GetWindowMetrics() const
   {
     // FIX: this is the only real invalid data that we return
-    return Point2(0, 0);
+    return {};
   }
 
 
@@ -112,7 +112,7 @@ namespace Fsl
   }
 
 
-  bool StubDemoHost::ProcessNativeMessages(const bool allowBlock)
+  bool StubDemoHost::ProcessNativeMessages(const bool /*allowBlock*/)
   {
     return true;
   }

@@ -35,7 +35,7 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 from typing import List
-from typing import Union
+#from typing import Union
 import os
 import os.path
 import xml.etree.ElementTree as ET
@@ -46,7 +46,7 @@ from FslBuildGen.DataTypes import PackageLanguage
 from FslBuildGen.Exceptions import FileNotFoundException
 from FslBuildGen.ProjectId import ProjectId
 from FslBuildGen.Xml.Exceptions import XmlException
-from FslBuildGen.Vars.VariableProcessor import VariableEnvironment
+from FslBuildGen.Vars.VariableEnvironment import VariableEnvironment
 from FslBuildGen.Vars.VariableProcessor import VariableProcessor
 from FslBuildGen.Xml import FakeXmlElementFactory
 from FslBuildGen.Xml.Exceptions import XmlException2
@@ -149,7 +149,7 @@ class XmlExperimental(XmlBase):
                 platform = XmlExperimentalPlatform(log, element)
                 if platform.Id in platformDict:
                     errorMsg = "Multiple platforms called '{0}' found in Project.gen".format(platform.Id)
-                    raise XmlException2(element, errorMsg)
+                    raise XmlException2(errorMsg)
                 platformDict[platform.Id] = platform
         return platformDict
 
@@ -245,6 +245,7 @@ class XmlExtendedProject(XmlBase):
         super().__init__(log, xmlElement)
         #raise Exception("ExtendedProject not implemented");
         self.ProjectName = self._ReadAttrib(xmlElement, 'Name') # type: str
+        self.ShortProjectName = self._TryReadAttrib(xmlElement, 'ShortName') # type: Optional[str]
         self.ProjectVersion = self._ReadAttrib(xmlElement, 'Version', "1.0.0.0") # type: str
         self.RootDirectory = IOUtil.GetDirectoryName(filename)
         self.Parent = self._ReadAttrib(xmlElement, 'Parent')  # type: str
@@ -253,7 +254,7 @@ class XmlExtendedProject(XmlBase):
         self.ParentConfigFilename = IOUtil.Join(self.ParentRoot, configFilename)  # type: str
         self.SourceFileName = filename  # type: str
 
-        self.ProjectId = ProjectId(self.ProjectName)
+        self.ProjectId = ProjectId(self.ProjectName, self.ShortProjectName)
 
         variableProcessor = VariableProcessor(log)
         self.AbsoluteParentConfigFilename = variableProcessor.ResolveAbsolutePathWithLeadingEnvironmentVariablePath(self.ParentConfigFilename)
@@ -298,7 +299,7 @@ class XmlProjectRootConfigFile(XmlBase):
         self.ProjectName = "not set"
         self.ProjectVersion = "0.0.0.0"
         self.RootDirectory = LocalInvalidValues.INVALID_FILE_NAME  # type: str
-        self.DefaultPackageLanguage = PackageLanguage.CPP  # type: int
+        self.DefaultPackageLanguage = PackageLanguage.CPP  # type: PackageLanguage
         self.DefaultCompany = LocalInvalidValues.INVALID_COMPANY_NAME  # type: str
         self.ToolConfigFile = LocalInvalidValues.INVALID_FILE_NAME  # type: str
         self.RequirePackageCreationYear = False
@@ -321,9 +322,10 @@ class XmlProjectRootConfigFile(XmlBase):
                 self.Version = self._ReadAttrib(xmlElement, 'Version')
                 self.RootDirectory = rootDirectory
                 projectElem = XmlBase._GetElement(self, xmlElement, "Project") # type: ET.Element
-                self.ProjectName = self._ReadAttrib(projectElem, 'Name') # type: str
-                self.ProjectId = ProjectId(self.ProjectName)
-                self.ProjectVersion = self._ReadAttrib(projectElem, 'Version', "1.0.0.0") # type: str
+                self.ProjectName = self._ReadAttrib(projectElem, 'Name')
+                self.ShortProjectName = self._TryReadAttrib(projectElem, 'ShortName')
+                self.ProjectId = ProjectId(self.ProjectName, self.ShortProjectName)
+                self.ProjectVersion = self._ReadAttrib(projectElem, 'Version', "1.0.0.0")
                 toolConfigFilePath = self._ReadAttrib(projectElem, 'ToolConfigFile')  # type: str
                 self.DefaultPackageLanguage = self.__GetDefaultPackageLanguage(projectElem)
                 self.DefaultCompany = self._ReadAttrib(projectElem, 'DefaultCompany')
@@ -378,7 +380,7 @@ class XmlProjectRootConfigFile(XmlBase):
         if dst is not None:
             dst.Merge(src)
 
-    def __GetDefaultPackageLanguage(self, xmlElement: ET.Element) -> int:
+    def __GetDefaultPackageLanguage(self, xmlElement: ET.Element) -> PackageLanguage:
         defaultPackageLanguage = self._ReadAttrib(xmlElement, 'DefaultPackageLanguage', "C++")
         return PackageLanguage.FromString(defaultPackageLanguage)
 

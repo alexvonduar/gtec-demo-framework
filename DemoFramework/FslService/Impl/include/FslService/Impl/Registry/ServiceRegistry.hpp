@@ -31,7 +31,6 @@
  *
  ****************************************************************************************************************************************************/
 
-#include <FslBase/Noncopyable.hpp>
 #include <FslService/Impl/Priority.hpp>
 #include <FslService/Impl/Registry/ServiceGroupId.hpp>
 #include <memory>
@@ -50,7 +49,7 @@ namespace Fsl
 
   public:
     ServiceRegistry();
-    ServiceRegistry(const std::weak_ptr<IServiceRegistry>& registry);
+    explicit ServiceRegistry(std::weak_ptr<IServiceRegistry> registry);
     ~ServiceRegistry();
 
     ServiceGroupId CreateServiceGroup();

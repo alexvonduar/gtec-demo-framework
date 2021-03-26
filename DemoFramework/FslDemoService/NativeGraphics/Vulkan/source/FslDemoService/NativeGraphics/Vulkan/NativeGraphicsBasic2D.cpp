@@ -31,7 +31,7 @@
 
 #include "NativeGraphicsBasic2D.hpp"
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslGraphics/Bitmap/Bitmap.hpp>
 #include <FslGraphics/Bitmap/BitmapUtil.hpp>
 #include <FslGraphics/Color.hpp>
@@ -53,9 +53,9 @@ namespace Fsl
       }
     }
 
-    NativeGraphicsBasic2D::NativeGraphicsBasic2D(const std::shared_ptr<QuadBatch>& quadBatch, const Point2& currentResolution)
-      : m_batch2D(quadBatch, currentResolution)
-      , m_currentResolution(currentResolution)
+    NativeGraphicsBasic2D::NativeGraphicsBasic2D(const std::shared_ptr<QuadBatch>& quadBatch, const PxExtent2D& currentExtentPx)
+      : m_batch2D(quadBatch, currentExtentPx)
+      , m_currentExtent(currentExtentPx)
       , m_fontSize(EmbeddedFont8x8::CharacterSize())
       , m_inBegin(false)
     {
@@ -65,11 +65,11 @@ namespace Fsl
     NativeGraphicsBasic2D::~NativeGraphicsBasic2D() = default;
 
 
-    void NativeGraphicsBasic2D::SetScreenResolution(const Point2& currentResolution)
+    void NativeGraphicsBasic2D::SetScreenExtent(const PxExtent2D& extentPx)
     {
       assert(!m_inBegin);
-      m_currentResolution = currentResolution;
-      m_batch2D.SetScreenResolution(currentResolution);
+      m_currentExtent = extentPx;
+      m_batch2D.SetScreenExtent(extentPx);
     }
 
 
@@ -111,12 +111,11 @@ namespace Fsl
     }
 
 
-    void NativeGraphicsBasic2D::DrawString(const char* const characters, const uint32_t length, const Vector2& dstPosition)
+    void NativeGraphicsBasic2D::DrawString(const StringViewLite& strView, const Vector2& dstPosition)
     {
       assert(m_inBegin);
-      assert(characters != nullptr);
 
-      if (length == 0 || !m_resources.IsValid)
+      if (strView.empty() || !m_resources.IsValid)
       {
         return;
       }
@@ -125,10 +124,10 @@ namespace Fsl
       Vector2 dstPos = dstPosition;
 
       // build the arrays needed to render
-      const char* pSrc = characters;
-      const char* const pSrcEnd = pSrc + length;
+      const char* pSrc = strView.data();
+      const char* const pSrcEnd = pSrc + strView.size();
 
-      const int32_t charWidth = m_fontSize.X;
+      const int32_t charWidth = m_fontSize.Width();
 
       // Handle leading 'non drawable chars' by skipping them
       while (pSrc < pSrcEnd && !IsValidChar(int(*pSrc)))
@@ -144,20 +143,19 @@ namespace Fsl
         {
           m_batch2D.Draw(m_resources.FontTexture, dstPos, m_charRects[*pSrc - MIN_VALUE], colorWhite);
         }
-        FSLLOG_WARNING_IF(*pSrc == 0, "Zero is not a valid character in a string!");
+        FSLLOG3_WARNING_IF(*pSrc == 0, "Zero is not a valid character in a string!");
         dstPos.X += charWidth;
         ++pSrc;
       }
     }
 
 
-    Point2 NativeGraphicsBasic2D::FontSize() const
+    PxSize2D NativeGraphicsBasic2D::FontSize() const
     {
       return m_fontSize;
     }
 
-    void NativeGraphicsBasic2D::VulkanDeviceInit(const VUDevice& device, const VkQueue queue, const uint32_t queueFamilyIndex,
-                                                 const std::shared_ptr<VulkanImageCreator>& imageCreator)
+    void NativeGraphicsBasic2D::VulkanDeviceInit(const std::shared_ptr<VulkanImageCreator>& imageCreator)
     {
       if (!imageCreator)
       {
@@ -185,7 +183,7 @@ namespace Fsl
     VUTexture NativeGraphicsBasic2D::CreateFontTexture(VulkanImageCreator& rImageCreator)
     {
       Bitmap fontBitmap;
-      EmbeddedFont8x8::CreateFontBitmap(fontBitmap, PixelFormat::R8G8B8A8_UNORM, Point2(2, 2), RectangleSizeRestrictionFlag::Power2);
+      EmbeddedFont8x8::CreateFontBitmap(fontBitmap, PixelFormat::R8G8B8A8_UNORM, PxPoint2(2, 2), RectangleSizeRestrictionFlag::Power2);
 
       // Create child images for each glyph and assign them to the valid chars
       {
@@ -197,19 +195,19 @@ namespace Fsl
         assert(EmbeddedFont8x8::MaxCharacter() >= lastChar);
 
         const int32_t imageWidth = fontBitmap.Width();
-        Point2 fontSize = EmbeddedFont8x8::CharacterSize();
-        fontSize.X += 2;
-        fontSize.Y += 2;
+        PxSize2D fontSize = EmbeddedFont8x8::CharacterSize();
+        fontSize.AddWidth(2);
+        fontSize.AddHeight(2);
         int32_t srcX = 0;
         int32_t srcY = 0;
         for (std::size_t i = 0; i < numChars; ++i)
         {
-          m_charRects[i] = Rectangle(srcX, srcY, fontSize.X, fontSize.Y);
-          srcX += fontSize.X;
-          if ((srcX + fontSize.X) > imageWidth)
+          m_charRects[i] = PxRectangle(srcX, srcY, fontSize.Width(), fontSize.Height());
+          srcX += fontSize.Width();
+          if ((srcX + fontSize.Width()) > imageWidth)
           {
             srcX = 0;
-            srcY += fontSize.Y;
+            srcY += fontSize.Height();
           }
         }
       }
@@ -223,7 +221,7 @@ namespace Fsl
           fontBitmap.SetNativePixel(x, y, 0xFFFFFFFF);
         }
       }
-      m_fillPixelRect = Rectangle(fontBitmap.Width() - 4, fontBitmap.Height() - 4, 1, 1);
+      m_fillPixelRect = PxRectangle(fontBitmap.Width() - 4, fontBitmap.Height() - 4, 1, 1);
 
       VkSamplerCreateInfo samplerCreateInfo{};
       samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;

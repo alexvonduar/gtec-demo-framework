@@ -145,9 +145,9 @@ namespace Fsl
       Camera m_camera;
 
       float m_zoom = 0;
-      glm::vec3 m_rotation = glm::vec3();
-      glm::vec3 m_cameraPos = glm::vec3();
-      glm::vec2 m_mousePos;
+      glm::vec3 m_rotation{};
+      glm::vec3 m_cameraPos{};
+      glm::vec2 m_mousePos{};
 
       std::string m_title = "Vulkan Example";
       std::string m_name = "vulkanExample";
@@ -158,7 +158,7 @@ namespace Fsl
       LocalMouseButtons m_mouseButtons;
       bool m_commandBuffersDirty = false;
 
-      VulkanWillemsDemoApp(const DemoAppConfig& demoAppConfig, const MeshLoaderAllocFunc& meshLoaderAllocFunc = nullptr);
+      explicit VulkanWillemsDemoApp(const DemoAppConfig& demoAppConfig, MeshLoaderAllocFunc meshLoaderAllocFunc = nullptr);
       ~VulkanWillemsDemoApp() override;
 
       virtual void Prepare();

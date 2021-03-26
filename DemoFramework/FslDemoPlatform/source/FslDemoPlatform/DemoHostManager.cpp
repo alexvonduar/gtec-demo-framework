@@ -29,8 +29,8 @@
  *
  ****************************************************************************************************************************************************/
 
-#include <FslBase/Log/BasicLog.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Core.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslDemoApp/Base/DemoAppConfig.hpp>
 #include <FslDemoHost/Base/ADemoHost.hpp>
 #include <FslDemoHost/Base/DemoAppManager.hpp>
@@ -40,30 +40,11 @@
 #include <FslDemoHost/Base/Service/NativeWindowEvents/INativeWindowEventSender.hpp>
 #include <FslDemoPlatform/DemoHostManager.hpp>
 #include <FslDemoPlatform/DemoHostManagerOptionParser.hpp>
-#include <FslDemoPlatform/Service/MMDCStats/IMMDCStatsService.hpp>
 #include <FslDemoService/Graphics/Control/IGraphicsServiceControl.hpp>
 #include <FslService/Impl/Threading/IServiceHostLooper.hpp>
 #include <FslNativeWindow/Base/NativeWindowEventQueue.hpp>
 #include <cassert>
 #include <thread>
-
-#if 0
-#define LOCAL_LOG(X) FSLLOG("DemoHostManager: " << X)
-#else
-#define LOCAL_LOG(X) \
-  {                  \
-  }
-#endif
-
-#if 1
-#define VERBOSE_LOG(X) FSLLOG_IF(m_demoSetup.VerbosityLevel > 0, "DemoHostManager: " << X)
-#define VERBOSE_TRACE_LOG(X) FSLLOG_IF(m_demoSetup.VerbosityLevel > 4, "DemoHostManager: " << X)
-#else
-#define VERBOSE_LOG(X) \
-  {                    \
-  }
-#define VERBOSE_TRACE_LOG(X) VERBOSE_LOG(X)
-#endif
 
 namespace Fsl
 {
@@ -74,7 +55,6 @@ namespace Fsl
     , m_state(State::Idle)
     , m_exitAfterFrame(demoHostManagerOptionParser->GetExitAfterFrame())
     , m_exitAfterDuration(demoHostManagerOptionParser->GetDurationExitConfig())
-    , m_windowSizeIsDirty(true)
     , m_exitTime(std::chrono::microseconds(m_timer.GetTime()) + std::chrono::microseconds(m_exitAfterDuration.Duration))
   {
     // Acquire the various services
@@ -84,7 +64,7 @@ namespace Fsl
     m_hostInfoControl = serviceProvider.Get<IHostInfoControl>();
 
     HostConfig hostConfig(demoHostManagerOptionParser->IsAppFirewallEnabled(), demoHostManagerOptionParser->IsContentMonitorEnabled(),
-                          demoHostManagerOptionParser->IsStatsEnabled());
+                          demoHostManagerOptionParser->IsStatsEnabled(), demoHostManagerOptionParser->GetAppStatsFlags());
     m_hostInfoControl->SetConfig(hostConfig);
 
     // Set the config we are using for the app host so it can be retrieved from IHostInfo
@@ -97,23 +77,23 @@ namespace Fsl
     // Get the demo host up and running
     CmdRestart();
 
-    VERBOSE_LOG("Starting demoAppManager");
-
+    FSLLOG3_VERBOSE("DemoHostManager: Starting demoAppManager");
 
     // Lets prepare the app manager.
-    const DemoAppConfig demoAppConfig(demoSetup.App.AppSetup.OptionParser, demoSetup.ExceptionFormatter, m_demoHost->GetScreenResolution(),
+    const DemoAppConfig demoAppConfig(demoSetup.App.AppSetup.OptionParser, demoSetup.ExceptionFormatter, m_demoHost->GetWindowMetrics(),
                                       serviceProvider, demoSetup.App.AppSetup.CustomAppConfig);
-    m_demoAppManager = std::make_shared<DemoAppManager>(
-      demoSetup.App.AppSetup, demoAppConfig, hostConfig.StatOverlay, demoHostManagerOptionParser->GetLogStatsMode(), hostConfig.AppFirewall,
-      hostConfig.ContentMonitor, demoHostManagerOptionParser->IsBasic2DPreallocEnabled(), demoHostManagerOptionParser->GetForceUpdateTime(),
-      !m_demoHostCaps.IsEnabled(DemoHostCaps::Flags::AppRenderedSystemOverlay));
+    m_demoAppManager =
+      std::make_shared<DemoAppManager>(demoSetup.App.AppSetup, demoAppConfig, hostConfig.StatOverlay, demoHostManagerOptionParser->GetLogStatsMode(),
+                                       demoHostManagerOptionParser->GetAppStatsFlags(), hostConfig.AppFirewall, hostConfig.ContentMonitor,
+                                       demoHostManagerOptionParser->IsBasic2DPreallocEnabled(), demoHostManagerOptionParser->GetForceUpdateTime(),
+                                       !m_demoHostCaps.IsEnabled(DemoHostCaps::Flags::AppRenderedSystemOverlay));
 
-    VERBOSE_LOG("Processing messages");
+    FSLLOG3_VERBOSE("DemoHostManager: Processing messages");
 
     // Allow the pending messages that was created during setup to be processed as part of the 'host setup'
     ProcessMessages();
 
-    VERBOSE_LOG("Created");
+    FSLLOG3_VERBOSE("DemoHostManager: Created");
   }
 
 
@@ -135,8 +115,8 @@ namespace Fsl
 
   int DemoHostManager::Run(const std::shared_ptr<IServiceHostLooper>& serviceHostLooper)
   {
-    VERBOSE_LOG("Running");
-    Point2 screenResolution = m_demoHost->GetScreenResolution();
+    FSLLOG3_VERBOSE("DemoHostManager: Running");
+    auto windowMetrics = m_demoHost->GetWindowMetrics();
 
     const auto isConsoleBasedHost = m_demoHost->IsConsoleBaseHost();
     // Event loop
@@ -150,21 +130,21 @@ namespace Fsl
       {
         if (m_demoAppManager->GetState() == DemoState::Running)
         {
-          if (m_windowSizeIsDirty || m_demoAppManager->HasRestartRequest())
+          if (m_windowMetricsDirty || m_demoAppManager->HasRestartRequest())
           {
-            screenResolution = m_demoHost->GetScreenResolution();
-            m_windowSizeIsDirty = false;
+            windowMetrics = m_demoHost->GetWindowMetrics();
+            m_windowMetricsDirty = false;
           }
-          AppProcess(screenResolution, isConsoleBasedHost);
+          AppProcess(windowMetrics, isConsoleBasedHost);
         }
       }
     }
     return m_demoAppManager->CloseApp();
   }
 
-  void DemoHostManager::AppProcess(const Point2& screenResolution, const bool isConsoleBasedHost)
+  void DemoHostManager::AppProcess(const DemoWindowMetrics& windowMetrics, const bool isConsoleBasedHost)
   {
-    if (m_demoAppManager->Process(screenResolution, isConsoleBasedHost))
+    if (m_demoAppManager->Process(windowMetrics, isConsoleBasedHost))
     {
       auto swapBuffersResult = AppDrawAndSwapBuffers();
       switch (swapBuffersResult)
@@ -189,7 +169,7 @@ namespace Fsl
         break;
       case SwapBuffersResult::Failed:
         // The swap failed, lets try to restart the demo host
-        VERBOSE_LOG("Swap buffers failed, trying to restart");
+        FSLLOG3_VERBOSE("DemoHostManager: Swap buffers failed, trying to restart");
         CmdRestart();
         break;
       case SwapBuffersResult::AppControlled:
@@ -236,7 +216,7 @@ namespace Fsl
       // everything is ok
       return SwapBuffersResult::Completed;
     case AppDrawResult::Retry:
-      FSLBASICLOG_WARNING("RetryDraw limit exceeded -> failing");
+      FSLLOG3_WARNING("RetryDraw limit exceeded -> failing");
       return SwapBuffersResult::Failed;
     case AppDrawResult::NotReady:
       return SwapBuffersResult::NotReady;
@@ -253,29 +233,28 @@ namespace Fsl
     NativeWindowEvent event;
     while (m_eventQueue->TryDequeue(event))
     {
-      VERBOSE_TRACE_LOG("Event: " << static_cast<int32_t>(event.Type) << " arg1: " << event.Arg1 << " arg2: " << event.Arg2
-                                  << " arg3: " << event.Arg3);
+      FSLLOG3_VERBOSE6("Event: {} arg1: {} arg2: {} arg3: {}", static_cast<int32_t>(event.Type), event.Arg1, event.Arg2, event.Arg3);
       switch (event.Type)
       {
       case NativeWindowEventType::WindowActivation:
-        VERBOSE_LOG("WindowActivation: " << event.Arg1);
+        FSLLOG3_VERBOSE("DemoHostManager: WindowActivation: {}", event.Arg1);
         CmdActivation(event.Arg1 != 0);
         break;
       case NativeWindowEventType::WindowSuspend:
-        VERBOSE_LOG("WindowSuspend: " << event.Arg1);
+        FSLLOG3_VERBOSE("DemoHostManager: WindowSuspend: {}", event.Arg1);
         CmdSuspend(event.Arg1 != 0);
         break;
       case NativeWindowEventType::LowMemory:
-        VERBOSE_LOG("LowMemory");
+        FSLLOG3_VERBOSE("DemoHostManager: LowMemory");
         // For now we ignore this
         break;
       case NativeWindowEventType::WindowResized:
-        VERBOSE_LOG("WindowResized");
-        m_windowSizeIsDirty = true;
+        FSLLOG3_VERBOSE("DemoHostManager: WindowResized");
+        m_windowMetricsDirty = true;
         break;
-      case NativeWindowEventType::WindowDPIChanged:
-        VERBOSE_LOG("WindowDPIChanged");
-        // For now we ignore this
+      case NativeWindowEventType::WindowConfigChanged:
+        FSLLOG3_VERBOSE("DemoHostManager: WindowConfigChanged");
+        m_windowMetricsDirty = true;
         break;
       default:
         break;
@@ -305,14 +284,14 @@ namespace Fsl
     // Allow a bit of post construction processing
     m_demoHost->OnConstructed();
 
-    VERBOSE_LOG("Demo host started");
+    FSLLOG3_VERBOSE("DemoHostManager: Demo host started");
     m_hostInfoControl->SetIsConsoleBasedHost(m_demoHost->IsConsoleBaseHost());
     const auto activeAPI = m_demoHost->GetActiveAPI();
     m_hostInfoControl->SetActiveAPI(activeAPI);
     if (m_graphicsService)
     {
       m_graphicsService->Configure(activeAPI);
-      VERBOSE_LOG("Graphics service configured");
+      FSLLOG3_VERBOSE("DemoHostManager: Graphics service configured");
     }
 
     if (m_demoAppManager)
@@ -328,7 +307,8 @@ namespace Fsl
     {
       if (m_state != State::Idle)
       {
-        FSLLOG_WARNING("Received activation(1) from unexpected state: " << m_state << " expected state: " << State::Idle);
+        FSLLOG3_WARNING("Received activation(1) from unexpected state: {} expected state: {}", static_cast<uint32_t>(m_state),
+                        static_cast<uint32_t>(State::Idle));
         return;
       }
 
@@ -336,13 +316,14 @@ namespace Fsl
       m_state = State::Activated;
       m_demoHost->OnActivate();
       m_demoAppManager->OnActivate();
-      VERBOSE_LOG("Activated");
+      FSLLOG3_VERBOSE("DemoHostManager: Activated");
     }
     else
     {
       if (m_state != State::Activated)
       {
-        FSLLOG_WARNING("Received activation(0) from unexpected state: " << m_state << " expected state: " << State::Idle);
+        FSLLOG3_WARNING("Received activation(0) from unexpected state: {} expected state: ", static_cast<uint32_t>(m_state),
+                        static_cast<uint32_t>(State::Idle));
         return;
       }
 
@@ -350,7 +331,7 @@ namespace Fsl
       m_state = State::Idle;
       m_demoAppManager->OnDeactivate();
       m_demoHost->OnDeactivate();
-      VERBOSE_LOG("Deactivated");
+      FSLLOG3_VERBOSE("DemoHostManager: Deactivated");
     }
   }
 
@@ -362,13 +343,13 @@ namespace Fsl
       // Quick exit if we are in the correct state
       if (m_state == State::Suspended)
       {
-        FSLBASICLOG_WARNING("Already in suspended state, ignoring.");
+        FSLLOG3_WARNING("Already in suspended state, ignoring.");
         return;
       }
 
       if (m_state == State::Activated)
       {
-        FSLBASICLOG_WARNING("Forcing window deactivation on suspend (missing activation)");
+        FSLLOG3_WARNING("Forcing window deactivation on suspend (missing activation)");
         CmdActivation(false);
       }
 
@@ -376,14 +357,14 @@ namespace Fsl
       m_state = State::Suspended;
       m_demoAppManager->Suspend(true);
       m_demoHost->OnSuspend();
-      VERBOSE_LOG("Suspended");
+      FSLLOG3_VERBOSE("DemoHostManager: Suspended");
     }
     else
     {
       // Quick exit if we are in the correct state
       if (m_state != State::Suspended)
       {
-        FSLBASICLOG_WARNING("Not in suspended state, ignoring.");
+        FSLLOG3_WARNING("Not in suspended state, ignoring.");
         return;
       }
 
@@ -391,7 +372,7 @@ namespace Fsl
       m_state = State::Idle;
       m_demoHost->OnResume();
       m_demoAppManager->Suspend(false);
-      VERBOSE_LOG("Resumed");
+      FSLLOG3_VERBOSE("DemoHostManager: Resumed");
     }
   }
 }

@@ -35,7 +35,7 @@
 #include <FslUtil/Vulkan1_0/VUBuffer.hpp>
 #include <FslUtil/Vulkan1_0/VUDeviceMemory.hpp>
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/BasicLog.hpp>
+#include <FslBase/Log/Log3Core.hpp>
 #include <array>
 #include <vector>
 
@@ -263,7 +263,7 @@ namespace Fsl
       public:
         void* pMappedMemory;
 
-        ScopedMap(VUSegmentedBufferMemory& rBuffer, const VkDeviceSize offset = 0, const VkDeviceSize size = VK_WHOLE_SIZE)
+        explicit ScopedMap(VUSegmentedBufferMemory& rBuffer, const VkDeviceSize offset = 0, const VkDeviceSize size = VK_WHOLE_SIZE)
           : m_rBuffer(rBuffer)
         {
           pMappedMemory = m_rBuffer.Map(offset, size);

@@ -30,7 +30,8 @@
  ****************************************************************************************************************************************************/
 
 #include <Shared/HDR/BasicScene/API/Vulkan/CommonMethods.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/UncheckedNumericCast.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslUtil/Vulkan1_0/Draft/VulkanImageCreator.hpp>
 
 namespace Fsl
@@ -43,17 +44,17 @@ namespace Fsl
     {
       if (features.textureCompressionASTC_LDR != VK_FALSE)
       {
-        FSLLOG("Using ASTC texture");
+        FSLLOG3_INFO("Using ASTC texture");
         return IO::Path("Textures/Bricks/Bricks_ASTC8x8_rgb.ktx");
       }
       if (features.textureCompressionETC2 != VK_FALSE)
       {
-        FSLLOG("Using ETC2 texture");
+        FSLLOG3_INFO("Using ETC2 texture");
         return IO::Path("Textures/Bricks/Bricks_ETC2_rgb.ktx");
       }
       if (features.textureCompressionBC != VK_FALSE)
       {
-        FSLLOG("Using BC1 texture");
+        FSLLOG3_INFO("Using BC1 texture");
         return IO::Path("Textures/Bricks/Bricks_BC1_rgb.ktx");
       }
       throw NotSupportedException("No supported texture compression found");
@@ -118,7 +119,7 @@ namespace Fsl
       allocInfo.descriptorSetCount = 1;
       allocInfo.pSetLayouts = descriptorSetLayout.GetPointer();
 
-      VkDescriptorSet descriptorSet;
+      VkDescriptorSet descriptorSet = nullptr;
       RapidVulkan::CheckError(vkAllocateDescriptorSets(descriptorPool.GetDevice(), &allocInfo, &descriptorSet), "vkAllocateDescriptorSets", __FILE__,
                               __LINE__);
 
@@ -153,7 +154,7 @@ namespace Fsl
       pipelineVertexInputCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
       pipelineVertexInputCreateInfo.vertexBindingDescriptionCount = 1;
       pipelineVertexInputCreateInfo.pVertexBindingDescriptions = &mesh.VertexInputBindingDescription;
-      pipelineVertexInputCreateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(mesh.VertexAttributeDescription.size());
+      pipelineVertexInputCreateInfo.vertexAttributeDescriptionCount = UncheckedNumericCast<uint32_t>(mesh.VertexAttributeDescription.size());
       pipelineVertexInputCreateInfo.pVertexAttributeDescriptions = mesh.VertexAttributeDescription.data();
 
       VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo{};
@@ -223,7 +224,7 @@ namespace Fsl
 
       VkPipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo{};
       pipelineDynamicStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-      pipelineDynamicStateCreateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicState.size());
+      pipelineDynamicStateCreateInfo.dynamicStateCount = UncheckedNumericCast<uint32_t>(dynamicState.size());
       pipelineDynamicStateCreateInfo.pDynamicStates = dynamicState.data();
 
       VkPipelineDepthStencilStateCreateInfo depthStencilStateCreateInfo{};
@@ -240,7 +241,7 @@ namespace Fsl
 
       VkGraphicsPipelineCreateInfo graphicsPipelineCreateInfo{};
       graphicsPipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-      graphicsPipelineCreateInfo.stageCount = static_cast<uint32_t>(pipelineShaderStageCreateInfo.size());
+      graphicsPipelineCreateInfo.stageCount = UncheckedNumericCast<uint32_t>(pipelineShaderStageCreateInfo.size());
       graphicsPipelineCreateInfo.pStages = pipelineShaderStageCreateInfo.data();
       graphicsPipelineCreateInfo.pVertexInputState = &pipelineVertexInputCreateInfo;
       graphicsPipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;

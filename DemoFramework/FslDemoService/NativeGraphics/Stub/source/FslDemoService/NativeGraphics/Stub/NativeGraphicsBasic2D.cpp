@@ -30,7 +30,7 @@
  ****************************************************************************************************************************************************/
 
 #include "NativeGraphicsBasic2D.hpp"
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/Exceptions.hpp>
 #include <FslGraphics/Color.hpp>
 #include <FslGraphics/Font/EmbeddedFont8x8.hpp>
@@ -40,22 +40,22 @@ namespace Fsl
 {
   namespace Stub
   {
-    NativeGraphicsBasic2D::NativeGraphicsBasic2D(const Point2& currentResolution, const bool showWarning)
-      : m_currentResolution(currentResolution)
+    NativeGraphicsBasic2D::NativeGraphicsBasic2D(const PxExtent2D& extentPx, const bool showWarning)
+      : m_pxCurrentExtent(extentPx)
       , m_fontSize(EmbeddedFont8x8::CharacterSize())
       , m_inBegin(false)
     {
-      FSLLOG_WARNING_IF(showWarning, "NativeGraphicsBasic2D is a stub");
+      FSLLOG3_WARNING_IF(showWarning, "NativeGraphicsBasic2D is a stub");
     }
 
 
     NativeGraphicsBasic2D::~NativeGraphicsBasic2D() = default;
 
 
-    void NativeGraphicsBasic2D::SetScreenResolution(const Point2& currentResolution)
+    void NativeGraphicsBasic2D::SetScreenExtent(const PxExtent2D& extentPx)
     {
       assert(!m_inBegin);
-      m_currentResolution = currentResolution;
+      m_pxCurrentExtent = extentPx;
     }
 
 
@@ -73,21 +73,21 @@ namespace Fsl
     }
 
 
-    void NativeGraphicsBasic2D::DrawPoints(const Vector2* const pDst, const uint32_t length, const Color& color)
+    void NativeGraphicsBasic2D::DrawPoints(const Vector2* const pDst, const uint32_t /*length*/, const Color& /*color*/)
     {
+      FSL_PARAM_NOT_USED(pDst);
       assert(m_inBegin);
       assert(pDst != nullptr);
     }
 
 
-    void NativeGraphicsBasic2D::DrawString(const char* const characters, const uint32_t length, const Vector2& dstPosition)
+    void NativeGraphicsBasic2D::DrawString(const StringViewLite& /*strView*/, const Vector2& /*dstPosition*/)
     {
       assert(m_inBegin);
-      assert(characters != nullptr);
     }
 
 
-    Point2 NativeGraphicsBasic2D::FontSize() const
+    PxSize2D NativeGraphicsBasic2D::FontSize() const
     {
       return m_fontSize;
     }

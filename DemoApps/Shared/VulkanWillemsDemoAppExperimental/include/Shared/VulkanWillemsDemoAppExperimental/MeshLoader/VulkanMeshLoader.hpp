@@ -18,7 +18,6 @@
 // The Assimp dependent parts were also split into their own class to make it
 // possible to builds apps without the Assimp dependency.
 
-#include <FslBase/Noncopyable.hpp>
 #include <FslBase/IO/Path.hpp>
 #include <Shared/VulkanWillemsDemoAppExperimental/MeshLoader/MeshBuffer.hpp>
 #include <Shared/VulkanWillemsDemoAppExperimental/MeshLoader/MeshCreateInfo.hpp>
@@ -40,17 +39,17 @@ namespace Fsl
   namespace Willems
   {
     class VulkanDevice;
-    class VulkanMeshLoader : private Noncopyable
+    class VulkanMeshLoader
     {
     protected:
       struct Vertex
       {
-        glm::vec3 m_pos;
-        glm::vec2 m_tex;
-        glm::vec3 m_normal;
-        glm::vec3 m_color;
-        glm::vec3 m_tangent;
-        glm::vec3 m_binormal;
+        glm::vec3 m_pos{};
+        glm::vec2 m_tex{};
+        glm::vec3 m_normal{};
+        glm::vec3 m_color{};
+        glm::vec3 m_tangent{};
+        glm::vec3 m_binormal{};
 
         Vertex() = default;
 
@@ -90,7 +89,11 @@ namespace Fsl
       IO::Path m_contentPath;
 
     public:
-      VulkanMeshLoader(const std::shared_ptr<IContentManager>& contentManager);
+      VulkanMeshLoader(const VulkanMeshLoader&) = delete;
+      VulkanMeshLoader& operator=(const VulkanMeshLoader&) = delete;
+
+      explicit VulkanMeshLoader(const std::shared_ptr<IContentManager>& contentManager);
+      virtual ~VulkanMeshLoader() = default;
 
       void LoadMesh(const std::string& relativePath);
       void LoadMesh(const std::string& relativePath, const int flags);

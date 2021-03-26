@@ -33,10 +33,10 @@
 
 #include <FslUtil/EGL/CheckError.hpp>
 #include <FslUtil/EGL/DebugStrings.hpp>
-#include <FslBase/Log/Log.hpp>
-#include <sstream>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <EGL/egl.h>
 
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define EGL_CHECK_FOR_ERROR()                                \
   {                                                          \
     Fsl::EGL::CheckError(eglGetError(), __FILE__, __LINE__); \
@@ -44,6 +44,7 @@
 
 
 // TODO: implement a better version of this macro as it can give unexpected behavior
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define EGL_CHECK(X)                                             \
   X;                                                             \
   {                                                              \
@@ -52,15 +53,16 @@
 
 
 // TODO: implement a better version of this macro as it can give unexpected behavior
-#define EGL_LOG_ERROR(X)                                                                                                                         \
-  X;                                                                                                                                             \
-  {                                                                                                                                              \
-    const auto rESULT = eglGetError();                                                                                                           \
-    if (rESULT != EGL_SUCCESS)                                                                                                                   \
-    {                                                                                                                                            \
-      FSLLOG_ERROR(#X << " failed with error code " << Fsl::EGL::Debug::ErrorCodeToString(rESULT) << " (" << static_cast<int>(rESULT) << ") at " \
-                      << __FILE__ << "(" << __LINE__ << ")");                                                                                    \
-    }                                                                                                                                            \
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define EGL_LOG_ERROR(X)                                                                                                                      \
+  X;                                                                                                                                          \
+  {                                                                                                                                           \
+    const auto rESULT = eglGetError();                                                                                                        \
+    if (rESULT != EGL_SUCCESS)                                                                                                                \
+    {                                                                                                                                         \
+      FSLLOG3_ERROR("{} failed with error code {} ({}) at {} ({})", #X, Fsl::EGL::Debug::ErrorCodeToString(rESULT), static_cast<int>(rESULT), \
+                    __FILE__, __LINE__);                                                                                                      \
+    }                                                                                                                                         \
   }
 
 #endif

@@ -5,22 +5,18 @@
     <Dependency Name="FslGraphics"/>
     <Dependency Name="FslDemoApp.Base"/>
     <Dependency Name="FslDemoHost.Base"/>
+    <Dependency Name="FslDemoService.CpuStats.Impl" Access="Private"/>
     <Platform Name="Android">
       <Dependency Name="FslNativeWindow.Platform"/>
       <Dependency Name="Platform.Android.Glue" Access="Private"/>
       <Dependency Name="Platform.Android.NDKHelper" Access="Private"/>
       <Dependency Name="Platform.Android.JNIUtil" Access="Private"/>
-      <!-- For now we only enable this on android, once proper download is enabled on all platforms we can enable it everywhere -->
-      <Dependency Name="Recipe.half_1_12_0" Access="Private"/>
     </Platform>
-    <Platform Name="Ubuntu">
-    </Platform>
-    <Platform Name="QNX">
-    </Platform>
-    <Platform Name="Yocto">
-      <Dependency Name="Mmdc" Access="Private"/>
-    </Platform>
-    <Platform Name="Windows" ProjectId="5D828207-1B76-40FE-8817-CAA002DE8144">
-    </Platform>
+    <Platform Name="Ubuntu"/>
+    <Platform Name="QNX"/>
+    <Platform Name="Yocto"/>
+    <Platform Name="Windows" ProjectId="5D828207-1B76-40FE-8817-CAA002DE8144"/>
   </Library>
 </FslBuildGen>
+
+

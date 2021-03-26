@@ -38,14 +38,11 @@ namespace Fsl
 
     struct Vertices
     {
-      VkPipelineVertexInputStateCreateInfo InputState;
+      VkPipelineVertexInputStateCreateInfo InputState{};
       std::vector<VkVertexInputBindingDescription> BindingDescriptions;
       std::vector<VkVertexInputAttributeDescription> AttributeDescriptions;
 
-      Vertices()
-        : InputState{}
-      {
-      }
+      Vertices() = default;
     };
 
 
@@ -56,8 +53,8 @@ namespace Fsl
 
     struct UboTE
     {
-      glm::mat4 Projection;
-      glm::mat4 Model;
+      glm::mat4 Projection{};
+      glm::mat4 Model{};
       float TessAlpha = 1.0f;
     };
 
@@ -95,7 +92,7 @@ namespace Fsl
     bool m_splitScreen;
 
   public:
-    TessellationPNTriangles(const DemoAppConfig& config);
+    explicit TessellationPNTriangles(const DemoAppConfig& config);
     ~TessellationPNTriangles() override;
 
   protected:

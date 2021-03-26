@@ -3,6 +3,6 @@
   <Library Name="Shared.HDR.SkyboxTonemapping" CreationYear="2018">
     <Dependency Name="FslDemoApp.Base"/>
     <Dependency Name="FslSimpleUI.App"/>
-    <Platform Name="Windows" ProjectId="33E97665-5B96-42BF-A8D4-B994AD99D6F6"/>
+    <Dependency Name="FslSimpleUI.Theme.Basic"/>
   </Library>
 </FslBuildGen>

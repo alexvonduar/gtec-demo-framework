@@ -33,7 +33,7 @@
 #include "EGLNativeWindowSystemX11.hpp"
 #include <FslNativeWindow/EGL/EGLNativeWindowTemplate.hpp>
 #include <FslNativeWindow/Platform/X11/PlatformNativeWindowX11.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslUtil/EGL/Exceptions.hpp>
 #include <FslUtil/EGL/EGLCheck.hpp>
 
@@ -44,14 +44,14 @@ namespace Fsl
     std::shared_ptr<INativeWindow> AllocateWindow(const NativeWindowSetup& nativeWindowSetup, const PlatformNativeWindowParams& windowParams,
                                                   const PlatformNativeWindowAllocationParams* const pPlatformCustomWindowAllocationParams)
     {
-      const auto pNativeEglSetup = dynamic_cast<const NativeEGLSetup*>(pPlatformCustomWindowAllocationParams);
+      const auto* const pNativeEglSetup = dynamic_cast<const NativeEGLSetup*>(pPlatformCustomWindowAllocationParams);
       if (pNativeEglSetup == nullptr)
       {
         throw NotSupportedException("NativeEGLSetup pointer expected");
       }
 
       // Get the native visual id that matches the EGL config
-      EGLint nativeVisualId;
+      EGLint nativeVisualId{};
       EGL_CHECK(eglGetConfigAttrib(pNativeEglSetup->Display, pNativeEglSetup->Config, EGL_NATIVE_VISUAL_ID, &nativeVisualId));
 
       // Patch the params and forward

@@ -29,21 +29,23 @@
  *
  ****************************************************************************************************************************************************/
 
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/Exceptions.hpp>
 #include <FslBase/IO/File.hpp>
 #include <FslBase/IO/Path.hpp>
 #include <FslGraphics/Bitmap/Bitmap.hpp>
 #include <FslDemoApp/Base/Service/Image/IImageService.hpp>
 #include <FslDemoHost/Base/Service/Persistent/PersistentDataManagerService.hpp>
+#include <fmt/format.h>
 #include <cassert>
 #include <limits>
+#include <utility>
 
 namespace Fsl
 {
   namespace
   {
-    const IO::Path ToAbsolutePath(const IO::Path& trustedAbsPath, const IO::Path& notTrustedRelativePath)
+    IO::Path ToAbsolutePath(const IO::Path& trustedAbsPath, const IO::Path& notTrustedRelativePath)
     {
       assert(!trustedAbsPath.IsEmpty());
 
@@ -66,9 +68,9 @@ namespace Fsl
   }
 
 
-  PersistentDataManagerService::PersistentDataManagerService(const ServiceProvider& serviceProvider, const IO::Path& persistentDataPath)
+  PersistentDataManagerService::PersistentDataManagerService(const ServiceProvider& serviceProvider, IO::Path persistentDataPath)
     : ThreadLocalService(serviceProvider)
-    , m_persistentDataPath(persistentDataPath)
+    , m_persistentDataPath(std::move(persistentDataPath))
     , m_imageService(serviceProvider.TryGet<IImageService>())
   {
   }
@@ -96,9 +98,7 @@ namespace Fsl
     const auto length = IO::File::GetLength(absPath);
     if (length > std::numeric_limits<uint32_t>::max())
     {
-      std::stringstream strstream;
-      strstream << "File '" << absPath.ToAsciiString() << "' was larger than 4GB, which is unsupported";
-      throw IOException(strstream.str());
+      throw IOException(fmt::format("File '{}' was larger than 4GB, which is unsupported", absPath.ToAsciiString()));
     }
     return length;
   }

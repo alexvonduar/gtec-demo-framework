@@ -33,9 +33,6 @@
 
 // Make sure Common.hpp is the first include file (to make the error message as helpful as possible when disabled)
 #include <FslUtil/OpenVG/Common.hpp>
-#include <FslBase/Noncopyable.hpp>
-#include <FslBase/Math/Point2.hpp>
-#include <FslGraphics/Bitmap/RawBitmap.hpp>
 #include <VG/openvg.h>
 
 namespace Fsl
@@ -46,17 +43,20 @@ namespace Fsl
   {
     // A very simple wrapper for a VGPaint
     // FIX: this misses a constructor+reset method for creating the paint directly
-    class VGPaintBuffer : private Noncopyable
+    class VGPaintBuffer
     {
       VGPaint m_handle;
 
     public:
+      VGPaintBuffer(const VGPaintBuffer&) = delete;
+      VGPaintBuffer& operator=(const VGPaintBuffer&) = delete;
+
       //! @brief Create a uninitialized VGPaint
       VGPaintBuffer();
 
       //! @brief Let this VGPaintBuffer object assume control over the given VGPaint handle.
       //! @param handle the VGPaint handle
-      VGPaintBuffer(const VGPaint handle);
+      explicit VGPaintBuffer(const VGPaint handle);
 
       ~VGPaintBuffer();
 

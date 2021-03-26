@@ -31,7 +31,7 @@
  ****************************************************************************************************************************************************/
 
 #include "DPIHelperWin32.hpp"
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <VersionHelpers.h>
 #include <cassert>
 
@@ -56,7 +56,7 @@ namespace Fsl
         m_funcGetDpiForMonitor = reinterpret_cast<FuncGetDpiForMonitor>(GetProcAddress(m_shcore, "GetDpiForMonitor"));
         if (m_funcGetDpiForMonitor == nullptr)
         {
-          FSLLOG_WARNING("Failed to locate GetDpiForMonitor in SHCore.dll");
+          FSLLOG3_WARNING("Failed to locate GetDpiForMonitor in SHCore.dll");
           FreeLibrary(m_shcore);
           m_shcore = nullptr;
           m_mode = Mode::Basic;
@@ -64,7 +64,7 @@ namespace Fsl
       }
       else
       {
-        FSLLOG_WARNING("Failed to load SHCore.dll dynamically");
+        FSLLOG3_WARNING("Failed to load SHCore.dll dynamically");
         m_mode = Mode::Basic;
       }
     }
@@ -81,7 +81,7 @@ namespace Fsl
   }
 
 
-  bool DPIHelperWin32::TryGetDPI(HWND hWnd, Point2& rDPI) const
+  bool DPIHelperWin32::TryGetDpi(HWND hWnd, Point2& rDPI) const
   {
     if (m_mode != Mode::PerMonitor)
     {
@@ -95,8 +95,9 @@ namespace Fsl
     }
     assert(m_funcGetDpiForMonitor != nullptr);
 
-    auto hMonitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
-    UINT dpiX, dpiY;
+    HMONITOR hMonitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
+    UINT dpiX = 0;
+    UINT dpiY = 0;
     if (m_funcGetDpiForMonitor(hMonitor, MDT_EFFECTIVE_DPI, &dpiX, &dpiY) != S_OK)
     {
       rDPI = Point2();

@@ -26,13 +26,13 @@
 // Based on a sample by Norbert Nopper from VKTS Examples (VKTS_Sample02)
 // Recreated as a DemoFramework freestyle window sample by Freescale (2016)
 
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/Exceptions.hpp>
 #include <FslDemoHost/Base/Service/WindowHost/IWindowHostInfo.hpp>
 #include <FslNativeWindow/Vulkan/IVulkanNativeWindow.hpp>
+#include <FslUtil/Vulkan1_0/TypeConverter.hpp>
 #include <FslUtil/Vulkan1_0/Exceptions.hpp>
 #include <FslUtil/Vulkan1_0/SurfaceFormatInfo.hpp>
-#include <FslUtil/Vulkan1_0/Util/ConvertUtil.hpp>
 #include <FslUtil/Vulkan1_0/Util/MemoryTypeUtil.hpp>
 #include <FslUtil/Vulkan1_0/Util/SwapchainKHRUtil.hpp>
 #include <RapidVulkan/Check.hpp>
@@ -43,15 +43,9 @@
 
 namespace Fsl
 {
-  using namespace Vulkan;
-
   namespace
   {
-    const std::size_t VKTS_NUMBER_DYNAMIC_STATES = 2;
-
     const std::size_t VKTS_NUMBER_BUFFERS = 2;
-
-    const std::size_t VKTS_SHADER_STAGE_COUNT = 2;
 
     const auto VKTS_VERTEX_SHADER_NAME = "vertex_only_ndc.vert.spv";
     const auto VKTS_FRAGMENT_SHADER_NAME = "red.frag.spv";
@@ -61,7 +55,7 @@ namespace Fsl
   VulkanTriangle::VulkanTriangle(const DemoAppConfig& config)
     : VulkanWindowDemoApp(config)
   {
-    FSLLOG("VulkanTriangle app creating");
+    FSLLOG3_INFO("VulkanTriangle app creating");
 
     m_commandPool.Reset(m_device.Get(), 0, m_deviceQueue.QueueFamilyIndex);
 
@@ -73,7 +67,7 @@ namespace Fsl
     m_imageAcquiredSemaphore.Reset(m_device.Get(), 0);
     m_renderingCompleteSemaphore.Reset(m_device.Get(), 0);
 
-    FSLLOG("VulkanTriangle app created");
+    FSLLOG3_INFO("VulkanTriangle app created");
   }
 
 
@@ -82,22 +76,22 @@ namespace Fsl
     try
     {
       // Wait for everything to be idle before we try to free it
-      FSLLOG("VulkanTriangle app destroying");
+      FSLLOG3_INFO("VulkanTriangle app destroying");
     }
     catch (const std::exception& ex)
     {
       // We log and swallow it since destructor's are not allowed to throw
-      FSLLOG_ERROR("Exception during destruction: " << ex.what());
+      FSLLOG3_ERROR("Exception during destruction: {}", ex.what());
     }
   }
 
 
-  void VulkanTriangle::Update(const DemoTime& demoTime)
+  void VulkanTriangle::Update(const DemoTime& /*demoTime*/)
   {
   }
 
 
-  void VulkanTriangle::Draw(const DemoTime& demoTime)
+  void VulkanTriangle::Draw(const DemoTime& /*demoTime*/)
   {
     VkResult result = VK_SUCCESS;
     // FIX: hasCurrentExtentChanged missing, is this important?
@@ -123,7 +117,7 @@ namespace Fsl
       if (result == VK_ERROR_OUT_OF_DATE_KHR)
       {
         // TODO: support 'soft restart'
-        FSLLOG("Restaring app due to VK_ERROR_OUT_OF_DATE_KHR");
+        FSLLOG3_INFO("Restaring app due to VK_ERROR_OUT_OF_DATE_KHR");
         GetDemoAppControl()->RequestAppRestart();
         return;
       }
@@ -159,7 +153,7 @@ namespace Fsl
       if (result == VK_ERROR_OUT_OF_DATE_KHR)
       {
         // TODO: support 'soft restart'
-        FSLLOG("Restaring app due to VK_ERROR_OUT_OF_DATE_KHR");
+        FSLLOG3_INFO("Restaring app due to VK_ERROR_OUT_OF_DATE_KHR");
         GetDemoAppControl()->RequestAppRestart();
         return;
       }
@@ -171,6 +165,7 @@ namespace Fsl
   void VulkanTriangle::BuildVertexBuffer()
   {
     // Window clip origin is upper left.
+    // NOLINTNEXTLINE(modernize-avoid-c-arrays)
     static const float vertices[3 * 4] = {-0.5f, 0.5f, 0.0f, 1.0f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, -0.5f, 0.0f, 1.0f};
 
     VkBufferCreateInfo bufferCreateInfo{};
@@ -187,12 +182,12 @@ namespace Fsl
     VkMemoryRequirements memoryRequirements = m_vertexBuffer.GetBufferMemoryRequirements();
 
     VkPhysicalDeviceMemoryProperties physicalDeviceMemoryProperties = m_physicalDevice.MemoryProperties;
-    const auto memoryTypeIndex =
-      MemoryTypeUtil::GetMemoryTypeIndex(physicalDeviceMemoryProperties, memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+    const auto memoryTypeIndex = Vulkan::MemoryTypeUtil::GetMemoryTypeIndex(physicalDeviceMemoryProperties, memoryRequirements.memoryTypeBits,
+                                                                            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
     m_deviceMemoryVertexBuffer.Reset(m_device.Get(), memoryRequirements.size, memoryTypeIndex);
 
-    void* mappedData;
+    void* mappedData = nullptr;
 
     // TODO: (Improvement) Use a scoped map memory command since it would be exception safe
     RAPIDVULKAN_CHECK(vkMapMemory(m_deviceMemoryVertexBuffer.GetDevice(), m_deviceMemoryVertexBuffer.Get(), 0, sizeof(vertices), 0, &mappedData));
@@ -234,8 +229,8 @@ namespace Fsl
 
   void VulkanTriangle::BuildResources()
   {
-    auto fallbackExtent = ConvertUtil::Convert(GetScreenExtent());
-    m_swapchain = SwapchainKHRUtil::CreateSwapchain(
+    auto fallbackExtent = TypeConverter::UncheckedTo<VkExtent2D>(GetScreenExtent());
+    m_swapchain = Vulkan::SwapchainKHRUtil::CreateSwapchain(
       m_physicalDevice.Device, m_device.Get(), 0, m_surface, VKTS_NUMBER_BUFFERS, 1, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_SHARING_MODE_EXCLUSIVE,
       0, nullptr, VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR, VK_TRUE, m_swapchain.Get(), fallbackExtent, Vulkan::SurfaceFormatInfo());
 
@@ -299,8 +294,7 @@ namespace Fsl
 
   void VulkanTriangle::BuildPipeline()
   {
-    VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo[VKTS_SHADER_STAGE_COUNT]{};
-    static_assert(VKTS_SHADER_STAGE_COUNT == 2, "We expect 2 stages");
+    std::array<VkPipelineShaderStageCreateInfo, 2> pipelineShaderStageCreateInfo{};
 
     pipelineShaderStageCreateInfo[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     pipelineShaderStageCreateInfo[0].flags = 0;
@@ -408,19 +402,19 @@ namespace Fsl
     pipelineColorBlendStateCreateInfo.blendConstants[2] = 0.0f;
     pipelineColorBlendStateCreateInfo.blendConstants[3] = 0.0f;
 
-    VkDynamicState dynamicState[VKTS_NUMBER_DYNAMIC_STATES] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    std::array<VkDynamicState, 2> dynamicState = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 
     VkPipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo{};
     pipelineDynamicStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     pipelineDynamicStateCreateInfo.flags = 0;
-    pipelineDynamicStateCreateInfo.dynamicStateCount = VKTS_NUMBER_DYNAMIC_STATES;
-    pipelineDynamicStateCreateInfo.pDynamicStates = dynamicState;
+    pipelineDynamicStateCreateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicState.size());
+    pipelineDynamicStateCreateInfo.pDynamicStates = dynamicState.data();
 
     VkGraphicsPipelineCreateInfo graphicsPipelineCreateInfo{};
     graphicsPipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     graphicsPipelineCreateInfo.flags = 0;
-    graphicsPipelineCreateInfo.stageCount = VKTS_SHADER_STAGE_COUNT;
-    graphicsPipelineCreateInfo.pStages = pipelineShaderStageCreateInfo;
+    graphicsPipelineCreateInfo.stageCount = static_cast<uint32_t>(pipelineShaderStageCreateInfo.size());
+    graphicsPipelineCreateInfo.pStages = pipelineShaderStageCreateInfo.data();
     graphicsPipelineCreateInfo.pVertexInputState = &pipelineVertexInputCreateInfo;
     graphicsPipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
     graphicsPipelineCreateInfo.pTessellationState = nullptr;
@@ -452,7 +446,7 @@ namespace Fsl
 
   void VulkanTriangle::BuildFramebuffer(const uint32_t bufferIndex)
   {
-    auto imageView = m_swapchainImageView[bufferIndex].Get();
+    VkImageView imageView = m_swapchainImageView[bufferIndex].Get();
     m_framebuffer[bufferIndex].Reset(m_device.Get(), 0, m_renderPass.Get(), 1, &imageView, m_swapchain.GetImageExtent().width,
                                      m_swapchain.GetImageExtent().height, 1);
   }
@@ -466,13 +460,8 @@ namespace Fsl
       m_swapchain.CmdPipelineBarrier(m_cmdBuffer[bufferIndex].Get(), VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                      VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, bufferIndex);
 
-      VkClearColorValue clearColorValue{};
-      clearColorValue.float32[0] = 0.0f;
-      clearColorValue.float32[1] = 0.0f;
-      clearColorValue.float32[2] = 1.0f;
-      clearColorValue.float32[3] = 1.0f;
-
-      VkClearValue clearValues[1] = {clearColorValue};
+      std::array<VkClearValue, 1> clearValues{};
+      clearValues[0].color = {{0.0f, 0.0f, 1.0f, 1.0f}};
 
       VkRenderPassBeginInfo renderPassBeginInfo{};
       renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -481,8 +470,8 @@ namespace Fsl
       renderPassBeginInfo.renderArea.offset.x = 0;
       renderPassBeginInfo.renderArea.offset.y = 0;
       renderPassBeginInfo.renderArea.extent = m_swapchain.GetImageExtent();
-      renderPassBeginInfo.clearValueCount = 1;
-      renderPassBeginInfo.pClearValues = clearValues;
+      renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+      renderPassBeginInfo.pClearValues = clearValues.data();
 
       m_cmdBuffer[bufferIndex].CmdBeginRenderPass(&renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
       {
@@ -505,9 +494,9 @@ namespace Fsl
 
         vkCmdSetScissor(m_cmdBuffer[bufferIndex].Get(), 0, 1, &scissor);
 
-        VkDeviceSize offsets[1] = {0};
+        std::array<VkDeviceSize, 1> offsets = {0};
         VkBuffer vertexBuffer = m_vertexBuffer.Get();
-        vkCmdBindVertexBuffers(m_cmdBuffer[bufferIndex].Get(), 0, 1, &vertexBuffer, offsets);
+        vkCmdBindVertexBuffers(m_cmdBuffer[bufferIndex].Get(), 0, static_cast<uint32_t>(offsets.size()), &vertexBuffer, offsets.data());
         vkCmdDraw(m_cmdBuffer[bufferIndex].Get(), 3, 1, 0, 0);
       }
       m_cmdBuffer[bufferIndex].CmdEndRenderPass();

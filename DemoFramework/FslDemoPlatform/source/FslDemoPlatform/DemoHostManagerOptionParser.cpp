@@ -32,11 +32,12 @@
 #include <FslBase/Getopt/OptionBaseValues.hpp>
 #include <FslBase/String/StringUtil.hpp>
 #include <FslBase/String/StringParseUtil.hpp>
-#include <FslBase/Log/Log.hpp>
-#include <FslBase/Log/IO/LogPath.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
+#include <FslBase/Log/IO/FmtPath.hpp>
+#include <FslBase/Log/String/FmtStringViewLite.hpp>
 #include <FslGraphics/ImageFormatUtil.hpp>
 #include <FslDemoPlatform/DemoHostManagerOptionParser.hpp>
-#include <iostream>
+#include <fmt/format.h>
 
 namespace Fsl
 {
@@ -54,6 +55,7 @@ namespace Fsl
         LogStats,
         LogStatsMode,
         Stats,
+        StatsFlags,
         AppFirewall,
         ContentMonitor,
         EnableBasic2DPrealloc,
@@ -62,23 +64,52 @@ namespace Fsl
       };
     };
 
-    enum DurationFormat
+
+    enum class DurationFormat
     {
       Invalid,
       Milliseconds,
       Seconds
     };
+
+
+    DemoAppStatsFlags::Enum TryParse(const StringViewLite& str)
+    {
+      if (str == "frame")
+      {
+        return DemoAppStatsFlags::Frame;
+      }
+      if (str == "cpu")
+      {
+        return DemoAppStatsFlags::CPU;
+      }
+      return DemoAppStatsFlags::Nothing;
+    }
+
+
+    OptionParseResult TryParseStatsFlags(DemoAppStatsFlags& rFlags, const StringViewLite& strArg)
+    {
+      auto entries = StringUtil::Split(strArg, '|', true);
+
+      uint32_t flags = 0u;
+      for (const auto& entry : entries)
+      {
+        auto flag = TryParse(entry);
+        if (flag == DemoAppStatsFlags::Nothing)
+        {
+          FSLLOG3_WARNING("Unknown stats flag: {}", entry);
+          rFlags = {};
+          return OptionParseResult::Failed;
+        }
+        flags = flags | static_cast<uint32_t>(flag);
+      }
+      rFlags = DemoAppStatsFlags(flags);
+      return OptionParseResult::Parsed;
+    }
   }
 
   DemoHostManagerOptionParser::DemoHostManagerOptionParser()
-    : m_exitAfterFrame(-1)
-    , m_screenshotConfig(TestScreenshotNameScheme::FrameNumber, ImageFormat::Png, 0, "Screenshot")
-    , m_forceUpdateTime(0)
-    , m_logStatsMode(LogStatsMode::Disabled)
-    , m_stats(false)
-    , m_appFirewall(false)
-    , m_enableBasic2DPrealloc(true)
-    , m_contentMonitor(false)
+    : m_screenshotConfig(TestScreenshotNameScheme::FrameNumber, ImageFormat::Png, 0, "Screenshot")
   {
   }
 
@@ -95,6 +126,8 @@ namespace Fsl
     rOptions.emplace_back("LogStatsMode", OptionArgument::OptionRequired, CommandId::LogStatsMode,
                           "Set the log stats mode, more advanced version of LogStats. Can be disabled, latest, average");
     rOptions.emplace_back("Stats", OptionArgument::OptionNone, CommandId::Stats, "Display basic frame profiling stats");
+    rOptions.emplace_back("StatsFlags", OptionArgument::OptionRequired, CommandId::StatsFlags,
+                          "Select the stats to be displayed/logged. Defaults to frame|cpu. Can be 'frame', 'cpu' or any combination");
     rOptions.emplace_back("AppFirewall", OptionArgument::OptionNone, CommandId::AppFirewall,
                           "Enable the app firewall, reporting crashes on-screen instead of exiting");
     rOptions.emplace_back("EnableBasic2DPrealloc", OptionArgument::OptionRequired, CommandId::EnableBasic2DPrealloc,
@@ -108,7 +141,7 @@ namespace Fsl
     rOptions.emplace_back("ScreenshotNameScheme", OptionArgument::OptionRequired, CommandId::ScreenshotNameScheme,
                           "Chose the screenshot name scheme: frame, sequence or exact (defaults to frame)");
     rOptions.emplace_back("ContentMonitor", OptionArgument::OptionNone, CommandId::ContentMonitor,
-                          "Monitor the Content directory for changes and restart the app on changes. WARNING: Might not work on all platforms "
+                          "Monitor the Content directory for changes and restart the app on changes.\nWARNING: Might not work on all platforms "
                           "and it might impact app performance (experimental)");
     rOptions.emplace_back(
       "ForceUpdateTime", OptionArgument::OptionRequired, CommandId::ForceUpdateTime,
@@ -116,56 +149,57 @@ namespace Fsl
   }
 
 
-  OptionParseResult::Enum DemoHostManagerOptionParser::Parse(const int32_t cmdId, const char* const pszOptArg)
+  OptionParseResult DemoHostManagerOptionParser::Parse(const int32_t cmdId, const StringViewLite& strOptArg)
   {
     // Rectangle rectValue;
-    bool boolValue;
+    bool boolValue = false;
     switch (cmdId)
     {
     case CommandId::ExitAfterFrame:
-      StringParseUtil::Parse(m_exitAfterFrame, pszOptArg);
+      StringParseUtil::Parse(m_exitAfterFrame, strOptArg);
       return OptionParseResult::Parsed;
     case CommandId::ExitAfterDuration:
-      return ParseDurationExitConfig(pszOptArg);
+      return ParseDurationExitConfig(strOptArg);
     case CommandId::ScreenshotFrequency:
-      StringParseUtil::Parse(m_screenshotConfig.Frequency, pszOptArg);
+      StringParseUtil::Parse(m_screenshotConfig.Frequency, strOptArg);
       return OptionParseResult::Parsed;
     case CommandId::ScreenshotFormat:
-      return ParseScreenshotImageFormat(pszOptArg);
+      return ParseScreenshotImageFormat(strOptArg);
     case CommandId::ScreenshotNameScheme:
-      return ParseScreenshotNameScheme(pszOptArg);
+      return ParseScreenshotNameScheme(strOptArg);
     case CommandId::ScreenshotNamePrefix:
-      return ParseScreenshotNamePrefix(pszOptArg);
+      return ParseScreenshotNamePrefix(strOptArg);
     case CommandId::ForceUpdateTime:
-      StringParseUtil::Parse(m_forceUpdateTime, pszOptArg);
+      StringParseUtil::Parse(m_forceUpdateTime, strOptArg);
       return OptionParseResult::Parsed;
     case CommandId::LogStats:
       m_logStatsMode = LogStatsMode::Latest;
       return OptionParseResult::Parsed;
     case CommandId::LogStatsMode:
     {
-      std::string str(pszOptArg);
-      if (str == "disabled")
+      if (strOptArg == "disabled")
       {
         m_logStatsMode = LogStatsMode::Disabled;
       }
-      else if (str == "latest")
+      else if (strOptArg == "latest")
       {
         m_logStatsMode = LogStatsMode::Latest;
       }
-      else if (str == "average")
+      else if (strOptArg == "average")
       {
         m_logStatsMode = LogStatsMode::Average;
       }
       else
       {
-        throw std::invalid_argument(std::string("Unknown logStatsMode parameter " + str));
+        throw std::invalid_argument(fmt::format("Unknown logStatsMode parameter {}", strOptArg));
       }
       return OptionParseResult::Parsed;
     }
     case CommandId::Stats:
       m_stats = true;
       return OptionParseResult::Parsed;
+    case CommandId::StatsFlags:
+      return TryParseStatsFlags(m_statFlags, strOptArg);
     case CommandId::AppFirewall:
       m_appFirewall = true;
       return OptionParseResult::Parsed;
@@ -174,7 +208,7 @@ namespace Fsl
       m_appFirewall = true;
       return OptionParseResult::Parsed;
     case CommandId::EnableBasic2DPrealloc:
-      StringParseUtil::Parse(boolValue, pszOptArg);
+      StringParseUtil::Parse(boolValue, strOptArg);
       m_enableBasic2DPrealloc = boolValue;
       return OptionParseResult::Parsed;
     default:
@@ -214,18 +248,6 @@ namespace Fsl
   }
 
 
-  bool DemoHostManagerOptionParser::IsStatsEnabled() const
-  {
-    return m_stats;
-  }
-
-
-  bool DemoHostManagerOptionParser::IsAppFirewallEnabled() const
-  {
-    return m_appFirewall;
-  }
-
-
   bool DemoHostManagerOptionParser::IsBasic2DPreallocEnabled() const
   {
     return m_stats || m_enableBasic2DPrealloc;
@@ -244,31 +266,31 @@ namespace Fsl
   }
 
 
-  OptionParseResult::Enum DemoHostManagerOptionParser::ParseDurationExitConfig(const char* const pszOptArg)
+  OptionParseResult DemoHostManagerOptionParser::ParseDurationExitConfig(const StringViewLite& strOptArg)
   {
-    std::string input(pszOptArg);
+    StringViewLite input(strOptArg);
 
     // First we identify the time duration format
     DurationFormat durationFormat = DurationFormat::Invalid;
-    if (StringUtil::EndsWith(input, "ms"))
+    if (input.ends_with("ms"))
     {
       durationFormat = DurationFormat::Milliseconds;
-      input.erase(input.size() - 2, 2);
+      input.substr(0, input.size() - 2);
     }
-    else if (StringUtil::EndsWith(input, "s"))
+    else if (input.ends_with("s"))
     {
       durationFormat = DurationFormat::Seconds;
-      input.erase(input.size() - 1, 1);
+      input.substr(0, input.size() - 1);
     }
 
     if (durationFormat == DurationFormat::Invalid || input.empty())
     {
-      FSLLOG_ERROR("Unsupported duration string '" << input << "' expected a duration value like this 10s or 10ms");
+      FSLLOG3_ERROR("Unsupported duration string '{}' expected a duration value like this 10s or 10ms", input);
       return OptionParseResult::Failed;
     }
 
-    int32_t durationValue;
-    StringParseUtil::Parse(durationValue, input.c_str());
+    int32_t durationValue = 0;
+    StringParseUtil::Parse(durationValue, input);
 
     switch (durationFormat)
     {
@@ -286,12 +308,12 @@ namespace Fsl
   }
 
 
-  OptionParseResult::Enum DemoHostManagerOptionParser::ParseScreenshotImageFormat(const char* const pszOptArg)
+  OptionParseResult DemoHostManagerOptionParser::ParseScreenshotImageFormat(const StringViewLite& strOptArg)
   {
-    ImageFormat format = ImageFormatUtil::TryDetectImageFormat(std::string(pszOptArg));
+    ImageFormat format = ImageFormatUtil::TryDetectImageFormat(strOptArg);
     if (format == ImageFormat::Undefined)
     {
-      FSLLOG_ERROR("Unsupported image format '" << pszOptArg << "' expected 'bmp', 'jpg', 'png' or 'tga'");
+      FSLLOG3_ERROR("Unsupported image format '{}' expected 'bmp', 'jpg', 'png' or 'tga'", strOptArg);
       return OptionParseResult::Failed;
     }
     switch (format)
@@ -304,21 +326,21 @@ namespace Fsl
       m_screenshotConfig.Format = format;
       break;
     default:
-      FSLLOG_ERROR("Unsupported image format '" << pszOptArg << "' expected 'bmp', 'jpg', 'png' or 'tga'");
+      FSLLOG3_ERROR("Unsupported image format '{}' expected 'bmp', 'jpg', 'png' or 'tga'", strOptArg);
       return OptionParseResult::Failed;
     }
     return OptionParseResult::Parsed;
   }
 
 
-  OptionParseResult::Enum DemoHostManagerOptionParser::ParseScreenshotNamePrefix(const char* const pszOptArg)
+  OptionParseResult DemoHostManagerOptionParser::ParseScreenshotNamePrefix(const StringViewLite& strOptArg)
   {
     try
     {
-      IO::Path path(pszOptArg);
+      IO::Path path(strOptArg);
       if (IO::Path::GetFileName(path) != path)
       {
-        FSLLOG_ERROR("The prefix can only contain a filename prefix, not a path '" << path << "'");
+        FSLLOG3_ERROR("The prefix can only contain a filename prefix, not a path '{}'", path);
         return OptionParseResult::Failed;
       }
       m_screenshotConfig.FilenamePrefix = path.ToUTF8String();
@@ -326,32 +348,30 @@ namespace Fsl
     }
     catch (const std::exception& ex)
     {
-      FSLLOG_ERROR("Failed to parse screenshot name with error: " << ex.what());
+      FSLLOG3_ERROR("Failed to parse screenshot name with error: {}", ex.what());
       return OptionParseResult::Failed;
     }
   }
 
 
-  OptionParseResult::Enum DemoHostManagerOptionParser::ParseScreenshotNameScheme(const char* const pszOptArg)
+  OptionParseResult DemoHostManagerOptionParser::ParseScreenshotNameScheme(const StringViewLite& strOptArg)
   {
-    std::string input(pszOptArg);
-
-    if (input == "frame")
+    if (strOptArg == "frame")
     {
       m_screenshotConfig.NamingScheme = TestScreenshotNameScheme::FrameNumber;
       return OptionParseResult::Parsed;
     }
-    if (input == "sequential")
+    if (strOptArg == "sequential")
     {
       m_screenshotConfig.NamingScheme = TestScreenshotNameScheme::Sequential;
       return OptionParseResult::Parsed;
     }
-    if (input == "exact")
+    if (strOptArg == "exact")
     {
       m_screenshotConfig.NamingScheme = TestScreenshotNameScheme::Exact;
       return OptionParseResult::Parsed;
     }
-    FSLLOG_ERROR("Unsupported ScreenshotNameScheme '" << input << "' expected 'frame', 'sequential 'or 'exact'.");
+    FSLLOG3_ERROR("Unsupported ScreenshotNameScheme '{}' expected 'frame', 'sequential 'or 'exact'.", strOptArg);
     return OptionParseResult::Failed;
   }
 }

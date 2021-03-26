@@ -12,11 +12,12 @@
 // This class simulates the functionality found in VulkanExampleBase to make it easier
 // to port samples.
 
-#include <FslBase/Log/Log.hpp>
-#include <FslBase/Math/Extent3D.hpp>
+#include <FslBase/UncheckedNumericCast.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
+#include <FslBase/Math/Pixel/PxExtent3D.hpp>
 #include <FslBase/Math/Vector2.hpp>
 #include <FslBase/Exceptions.hpp>
-#include <FslUtil/Vulkan1_0/Util/ConvertUtil.hpp>
+#include <FslUtil/Vulkan1_0/TypeConverter.hpp>
 #include <FslUtil/Vulkan1_0/Util/MemoryTypeUtil.hpp>
 #include <Shared/VulkanWillemsDemoAppExperimental/VulkanWillemsDemoApp.hpp>
 #include <algorithm>
@@ -24,6 +25,9 @@
 #include <cmath>
 #include <cstring>
 #include <iomanip>
+#include <memory>
+#include <sstream>
+#include <utility>
 //#include <chrono>
 
 using namespace std;
@@ -32,7 +36,6 @@ using namespace RapidVulkan;
 namespace Fsl
 {
   using namespace Vulkan;
-  using namespace Vulkan::ConvertUtil;
 
   namespace Willems
   {
@@ -284,10 +287,10 @@ namespace Fsl
     }
 
 
-    VulkanWillemsDemoApp::VulkanWillemsDemoApp(const DemoAppConfig& demoAppConfig, const MeshLoaderAllocFunc& meshLoaderAllocFunc)
+    VulkanWillemsDemoApp::VulkanWillemsDemoApp(const DemoAppConfig& demoAppConfig, MeshLoaderAllocFunc meshLoaderAllocFunc)
       : DemoAppVulkan(demoAppConfig)
       , m_vulkanDevice(m_physicalDevice.Device, m_device.Get())
-      , m_meshLoaderAllocFunc(meshLoaderAllocFunc)
+      , m_meshLoaderAllocFunc(std::move(meshLoaderAllocFunc))
       , m_viewChanged(false)
       , m_enableVSync(false)
       , m_deviceProperties(m_vulkanDevice.GetProperties())
@@ -329,17 +332,17 @@ namespace Fsl
       m_submitInfo.pSignalSemaphores = m_semaphores.RenderComplete.GetPointer();
 
 #ifdef __ANDROID__
-      FSLLOG("Forcing vsync on");
+      FSLLOG3_INFO("Forcing vsync on");
       m_enableVSync = true;
 #endif
 
-      FSLLOG("VulkanWillemsDemoApp constructed");
+      FSLLOG3_INFO("VulkanWillemsDemoApp constructed");
     }
 
 
     VulkanWillemsDemoApp::~VulkanWillemsDemoApp()
     {
-      FSLLOG("VulkanWillemsDemoApp destroying");
+      FSLLOG3_INFO("VulkanWillemsDemoApp destroying");
       SafeWaitForDeviceIdle();
     }
 
@@ -359,8 +362,8 @@ namespace Fsl
       // Recreate setup command buffer for derived class
       CreateSetupCommandBuffer();
 
-      m_textureLoader.reset(new Willems::VulkanTextureLoader(GetContentManager(), m_physicalDevice.Device, m_device.Get(), m_deviceQueue.Queue,
-                                                             m_commandPool.Get(), m_deviceActiveFeatures));
+      m_textureLoader = std::make_unique<Willems::VulkanTextureLoader>(GetContentManager(), m_physicalDevice.Device, m_device.Get(),
+                                                                       m_deviceQueue.Queue, m_commandPool.Get(), m_deviceActiveFeatures);
 
       if (m_enableTextOverlay)
       {
@@ -368,8 +371,8 @@ namespace Fsl
         std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
         shaderStages.push_back(LoadShader("shaders/textoverlay.vert.spv", VK_SHADER_STAGE_VERTEX_BIT));
         shaderStages.push_back(LoadShader("shaders/textoverlay.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT));
-        m_textOverlay.reset(
-          new VulkanTextOverlay(&m_vulkanDevice, m_deviceQueue.Queue, &m_frameBuffers, GetScreenExtent(), m_renderPass.Get(), shaderStages));
+        m_textOverlay = std::make_unique<VulkanTextOverlay>(&m_vulkanDevice, m_deviceQueue.Queue, &m_frameBuffers, GetScreenExtent(),
+                                                            m_renderPass.Get(), shaderStages);
         UpdateTextOverlay();
       }
     }
@@ -438,7 +441,7 @@ namespace Fsl
 
     void VulkanWillemsDemoApp::SetupDepthStencil(const VkFormat depthFormat)
     {
-      const auto screenExtent = Convert(Extent3D(GetScreenExtent(), 1));
+      const auto screenExtent = TypeConverter::UncheckedTo<VkExtent3D>(PxExtent3D(GetScreenExtent(), 1));
 
       VkImageCreateInfo image{};
       image.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -551,11 +554,11 @@ namespace Fsl
 
       VkRenderPassCreateInfo renderPassInfo{};
       renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-      renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+      renderPassInfo.attachmentCount = UncheckedNumericCast<uint32_t>(attachments.size());
       renderPassInfo.pAttachments = attachments.data();
       renderPassInfo.subpassCount = 1;
       renderPassInfo.pSubpasses = &subpassDescription;
-      renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
+      renderPassInfo.dependencyCount = UncheckedNumericCast<uint32_t>(dependencies.size());
       renderPassInfo.pDependencies = dependencies.data();
 
       m_renderPass.Reset(m_device.Get(), renderPassInfo);
@@ -574,7 +577,7 @@ namespace Fsl
     {
       const auto screenExtent = GetScreenExtent();
 
-      VkImageView attachments[2];
+      std::array<VkImageView, 2> attachments{};
 
       // Depth/Stencil attachment is the same for all frame buffers
       attachments[1] = m_depthStencil.View.Get();
@@ -583,8 +586,8 @@ namespace Fsl
       frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
       frameBufferCreateInfo.pNext = nullptr;
       frameBufferCreateInfo.renderPass = m_renderPass.Get();
-      frameBufferCreateInfo.attachmentCount = 2;
-      frameBufferCreateInfo.pAttachments = attachments;
+      frameBufferCreateInfo.attachmentCount = UncheckedNumericCast<uint32_t>(attachments.size());
+      frameBufferCreateInfo.pAttachments = attachments.data();
       frameBufferCreateInfo.width = screenExtent.Width;
       frameBufferCreateInfo.height = screenExtent.Height;
       frameBufferCreateInfo.layers = 1;
@@ -648,7 +651,7 @@ namespace Fsl
     {
       if (!rCommandBuffer.IsValid())
       {
-        FSLLOG_DEBUG_WARNING("Can not flush a invalid command buffer");
+        FSLLOG3_DEBUG_WARNING("Can not flush a invalid command buffer");
         return;
       }
       rCommandBuffer.End();
@@ -695,7 +698,7 @@ namespace Fsl
 
         if (pData != nullptr)
         {
-          void* pMapped;
+          void* pMapped = nullptr;
           rMemory.MapMemory(0, size, 0, &pMapped);
           {
             std::memcpy(pMapped, pData, size);
@@ -764,7 +767,7 @@ namespace Fsl
     }
 
 
-    void VulkanWillemsDemoApp::GetOverlayText(VulkanTextOverlay& rTextOverlay)
+    void VulkanWillemsDemoApp::GetOverlayText(VulkanTextOverlay& /*rTextOverlay*/)
     {
       // Can be overriden in derived class
     }
@@ -783,7 +786,7 @@ namespace Fsl
       if (result == VK_ERROR_OUT_OF_DATE_KHR)
       {
         // TODO: support 'soft restart'
-        FSLLOG("Restaring app due to VK_ERROR_OUT_OF_DATE_KHR");
+        FSLLOG3_INFO("Restaring app due to VK_ERROR_OUT_OF_DATE_KHR");
         GetDemoAppControl()->RequestAppRestart();
         return false;
       }
@@ -801,12 +804,12 @@ namespace Fsl
       // Pass the semaphore signaled by the command buffer submission from the submit info as the wait semaphore for swap chain presentation
       // This ensures that the image is not presented to the windowing system until all commands have been submitted
 
-      const auto semaphore = m_semaphores.RenderComplete.Get();
+      const VkSemaphore semaphore = m_semaphores.RenderComplete.Get();
       const auto result = m_swapchain.TryQueuePresent(m_deviceQueue.Queue, m_currentBufferIndex, semaphore);
       if (result == VK_ERROR_OUT_OF_DATE_KHR)
       {
         // TODO: support 'soft restart'
-        FSLLOG("Restaring app due to VK_ERROR_OUT_OF_DATE_KHR");
+        FSLLOG3_INFO("Restaring app due to VK_ERROR_OUT_OF_DATE_KHR");
         GetDemoAppControl()->RequestAppRestart();
         return;
       }
@@ -834,9 +837,9 @@ namespace Fsl
     }
 
 
-    ShaderModule VulkanWillemsDemoApp::LoadShader(const std::string& fileName, const VkDevice device, const VkShaderStageFlagBits stage)
+    ShaderModule VulkanWillemsDemoApp::LoadShader(const std::string& fileName, const VkDevice device, const VkShaderStageFlagBits /*stage*/)
     {
-      const auto shaderBinary = GetContentManager()->ReadBytes(fileName);
+      const auto shaderBinary = GetContentManager()->ReadBytes(IO::Path(fileName));
 
       VkShaderModuleCreateInfo createInfo{};
       createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -850,7 +853,7 @@ namespace Fsl
     MeshLoader::MeshBuffer VulkanWillemsDemoApp::LoadMesh(const std::string& filename, const std::vector<MeshLoader::VertexLayout>& vertexLayout,
                                                           const float scale)
     {
-      MeshLoader::MeshCreateInfo meshCreateInfo;
+      MeshLoader::MeshCreateInfo meshCreateInfo{};
       meshCreateInfo.Scale = glm::vec3(scale);
       meshCreateInfo.Center = glm::vec3(0.0f);
       meshCreateInfo.UVScale = glm::vec2(1.0f);

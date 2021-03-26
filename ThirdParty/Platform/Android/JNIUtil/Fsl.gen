@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <FslBuildGen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../../FslBuildGen.xsd">
-  <Library Name="Platform.Android.JNIUtil" AllowCheck="false" CreationYear="2017">
+  <Library Name="Platform.Android.JNIUtil" AllowCheck="true" CreationYear="2017">
     <Default.Platform.Supported Value="false"/>
     <Platform Name="Android" Supported="true">
       <Dependency Name="FslBase"/>
@@ -8,6 +8,5 @@
       <Dependency Name="Platform.Android.Glue"/>
       <Dependency Name="Platform.Android.NDKHelper"/>
     </Platform>
-    <Platform Name="Windows" ProjectId="B7B23BD7-FF76-4A8E-AD14-E2F603E9FABF"/>
   </Library>
 </FslBuildGen>

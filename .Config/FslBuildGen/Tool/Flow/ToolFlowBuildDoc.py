@@ -32,7 +32,7 @@
 #****************************************************************************************************************************************************
 
 from typing import Any
-from typing import Callable
+#from typing import Callable
 from typing import cast
 from typing import Dict
 from typing import Optional
@@ -40,22 +40,24 @@ from typing import List
 from typing import Set
 import argparse
 import json
-import subprocess
+#import subprocess
 from FslBuildGen import IOUtil
 from FslBuildGen import Main as MainFlow
 #from FslBuildGen import ParseUtil
-from FslBuildGen.Generator import PluginConfig
-from FslBuildGen import PluginSharedValues
+#from FslBuildGen import PluginSharedValues
 from FslBuildGen.BasicConfig import BasicConfig
+from FslBuildGen.Build.BuildVariantConfigUtil import BuildVariantConfigUtil
 from FslBuildGen.BuildConfig.BuildDocConfiguration import BuildDocConfiguration
 from FslBuildGen.Config import Config
 from FslBuildGen.Context.GeneratorContext import GeneratorContext
 from FslBuildGen.DataTypes import PackageType
+#from FslBuildGen.Generator import PluginConfig
 from FslBuildGen.Location.ResolvedPath import ResolvedPath
 from FslBuildGen.Log import Log
-from FslBuildGen.PackageConfig import PlatformNameString
-from FslBuildGen.PackageFilters import PackageFilters
+#from FslBuildGen.PackageConfig import PlatformNameString
+#from FslBuildGen.PackageFilters import PackageFilters
 from FslBuildGen.Packages.Package import Package
+#from FslBuildGen.Packages.PackageNamespaceName import PackageNamespaceName
 from FslBuildGen.Packages.PackageRequirement import PackageRequirement
 from FslBuildGen.PlatformUtil import PlatformUtil
 from FslBuildGen.Tool.AToolAppFlow import AToolAppFlow
@@ -71,7 +73,7 @@ from FslBuildGen.Tool.Flow import ToolFlowBuild
 JsonDictType = Dict[str, Any]
 
 
-def ExtractPackages(packages: List[Package], packageType: int) -> List[Package]:
+def ExtractPackages(packages: List[Package], packageType: PackageType) -> List[Package]:
     res = []  # type: List[Package]
     for package in packages:
         if package.Type == packageType:
@@ -123,6 +125,7 @@ def TocEntryName(line: str) -> str:
 def TocEntryLink(line: str) -> str:
     line = line.strip()
     line = line.replace(' ', '-')
+    line = line.replace('.', '')
     line = line.lower()
     return line
 
@@ -177,7 +180,7 @@ def TryInsertTableOfContents(basicConfig: BasicConfig, lines: List[str], depth: 
 # AG_DEMOAPP_HEADER_BEGIN
 def BuildDemoAppHeader(package: Package) -> List[str]:
     result = []  # type: List[str]
-    result.append("# {0}".format(package.ShortName))
+    result.append("# {0}".format(package.NameInfo.ShortName.Value))
 #    result.append('<img src="./Example.jpg" height="135px" style="float:right">')
     result.append('<img src="Example.jpg" height="135px">')
     result.append("")
@@ -233,7 +236,7 @@ class ProgramArgument(object):
         self.IsPositional = self.__ReadEntry(entry, "IsPositional")
         self.Name = self.__ReadEntry(entry, "Name", "")
         self.ShortName = self.__ReadEntry(entry, "ShortName", "")
-        self.Type = self.__ReadEntry(entry, "Type",  "")
+        self.Type = self.__ReadEntry(entry, "Type", "")
         self.Help_FormattedName = self.__ReadEntry(entry, "Help_FormattedName", "")
 
         strEnding = "OptionParser"
@@ -285,7 +288,7 @@ def GetMaxFormattedNameLength(entries: List[ProgramArgument]) -> int:
     count = 0
     for entry in entries:
         if len(entry.Help_FormattedName) > count:
-            count = len(entry.Help_FormattedName)
+            count = len(SafeMarkdownString(entry.Help_FormattedName))
     return count
 
 
@@ -293,7 +296,7 @@ def GetMaxDescriptionLength(entries: List[ProgramArgument]) -> int:
     count = 0
     for entry in entries:
         if len(entry.Description) > count:
-            count = len(entry.Description)
+            count = len(SafeMarkdownString(entry.Description))
     return count
 
 
@@ -301,12 +304,12 @@ def GetMaxSourceNameLength(entries: List[ProgramArgument]) -> int:
     count = 0
     for entry in entries:
         if len(entry.SourceName) > count:
-            count = len(entry.Description)
+            count = len(SafeMarkdownString(entry.Description))
     return count
 
 
 def SafeMarkdownString(strSrc: str) -> str:
-    return strSrc.replace('<', '\\<')
+    return strSrc.replace('<', '\\<').replace('|', '\\|')
 
 
 #def GroupArgumentsBySourceName(basicConfig, arguments):
@@ -416,7 +419,7 @@ def ReadJsonFile(filename: str) -> JsonDictType:
 
 
 def TryBuildAndRun(toolAppContext: ToolAppContext, config: Config, package: Package) -> Optional[JsonDictType]:
-    if package.ResolvedPlatformNotSupported:
+    if not package.ResolvedPlatformSupported:
         return None
     if package.AbsolutePath is None:
         raise Exception("Invalid package")
@@ -487,7 +490,7 @@ def ProcessPackages(toolAppContext: ToolAppContext, config: Config, packages: Li
     exePackages = ExtractPackages(packages, PackageType.Executable)
     exePackages = __RemoveIgnored(log, exePackages, ignoreRequirementSet)
     exePackages = [package for package in exePackages if package.ShowInMainReadme]
-    exePackages.sort(key=lambda s: None if s.AbsolutePath is None else s.AbsolutePath.lower())
+    exePackages.sort(key=lambda s: "" if s.AbsolutePath is None else s.AbsolutePath.lower())
 
     packageArgumentsDict = {}  # type: Dict[Package, JsonDictType]
     if extractArguments is not None:
@@ -495,11 +498,9 @@ def ProcessPackages(toolAppContext: ToolAppContext, config: Config, packages: Li
 
     uniqueDict = {}  # type: Dict[str, List[Package]]
     for package in exePackages:
-        if package.Namespace is None:
-            raise Exception("Invalid package")
-        if not package.Namespace in uniqueDict:
-            uniqueDict[package.Namespace] = []
-        uniqueDict[package.Namespace].append(package)
+        if not package.NameInfo.Namespace.Value in uniqueDict:
+            uniqueDict[package.NameInfo.Namespace.Value] = []
+        uniqueDict[package.NameInfo.Namespace.Value].append(package)
 
     # sort the content
     for packageList in list(uniqueDict.values()):
@@ -524,15 +525,12 @@ def ProcessPackages(toolAppContext: ToolAppContext, config: Config, packages: Li
             if rootDir == activeRootDir:
                 config.LogPrintVerbose(4, "Processing package '{0}'".format(package.Name))
                 packageDir = package.AbsolutePath[len(rootDir.ResolvedPath)+1:]
-                result.append("### [{0}]({1})".format(package.ShortName, packageDir))
+                result.append("### [{0}]({1})".format(package.NameInfo.ShortName.Value, packageDir))
                 exampleImagePath = IOUtil.Join(package.AbsolutePath, "Example.jpg")
                 if IOUtil.IsFile(exampleImagePath):
                     exampleImagePath = exampleImagePath[len(rootDir.ResolvedPath)+1:]
-                    #result.append('<a href="{0}">'.format(packageDir))
-                    result.append('<a href="{0}">'.format(exampleImagePath))
-                    #result.append('<img src="{0}" height="108px" style="float:right;clear:both;display:table;margin:1px">'.format(exampleImagePath))
-                    result.append('<img src="{0}" height="108px">'.format(exampleImagePath))
-                    result.append('</a>')
+                    result.append("")
+                    result.append('<a href="{0}"><img src="{0}" height="108px" title="{1}"></a>'.format(exampleImagePath, package.Name))
                     result.append("")
 
                 readmePath = IOUtil.Join(package.AbsolutePath, "README.md")
@@ -571,8 +569,8 @@ def GetDefaultLocalConfig() -> LocalToolConfig:
 
 
 class ToolFlowBuildDoc(AToolAppFlow):
-    def __init__(self, toolAppContext: ToolAppContext) -> None:
-        super().__init__(toolAppContext)
+    #def __init__(self, toolAppContext: ToolAppContext) -> None:
+    #    super().__init__(toolAppContext)
 
 
     def ProcessFromCommandLine(self, args: Any, currentDirPath: str, toolConfig: ToolConfig, userTag: Optional[object]) -> None:
@@ -609,8 +607,11 @@ class ToolFlowBuildDoc(AToolAppFlow):
         config.PrintTitle()
 
         # Get the generator and see if its supported
-        generator = PluginConfig.GetGeneratorPluginById(localToolConfig.PlatformName, localToolConfig.Generator, False,
-                                                        config.ToolConfig.CMakeConfiguration, localToolConfig.GetUserCMakeConfig())
+        buildVariantConfig = BuildVariantConfigUtil.GetBuildVariantConfig(localToolConfig.BuildVariantsDict)
+        generator = self.ToolAppContext.PluginConfigContext.GetGeneratorPluginById(localToolConfig.PlatformName, localToolConfig.Generator,
+                                                                                   buildVariantConfig, config.ToolConfig.DefaultPackageLanguage,
+                                                                                   config.ToolConfig.CMakeConfiguration,
+                                                                                   localToolConfig.GetUserCMakeConfig(), False)
         PlatformUtil.CheckBuildPlatform(generator.PlatformName)
 
         config.LogPrint("Active platform: {0}".format(generator.PlatformName))
@@ -618,7 +619,7 @@ class ToolFlowBuildDoc(AToolAppFlow):
         packageFilters = localToolConfig.BuildPackageFilters
 
         theFiles = MainFlow.DoGetFiles(config, toolConfig.GetMinimalConfig(), currentDirPath, localToolConfig.Recursive)
-        generatorContext = GeneratorContext(config, packageFilters.RecipeFilterManager, config.ToolConfig.Experimental, generator)
+        generatorContext = GeneratorContext(config, self.ErrorHelpManager, packageFilters.RecipeFilterManager, config.ToolConfig.Experimental, generator)
         packages = MainFlow.DoGetPackages(generatorContext, config, theFiles, packageFilters)
         #topLevelPackage = PackageListUtil.GetTopLevelPackage(packages)
         #featureList = [entry.Name for entry in topLevelPackage.ResolvedAllUsedFeatures]
@@ -651,12 +652,12 @@ class ToolFlowBuildDoc(AToolAppFlow):
 
 
 class ToolAppFlowFactory(AToolAppFlowFactory):
-    def __init__(self) -> None:
-        pass
+    #def __init__(self) -> None:
+    #    pass
 
 
     def GetTitle(self) -> str:
-        return 'FslBuilDoc'
+        return 'FslBuildDoc'
 
 
     def GetToolCommonArgConfig(self) -> ToolCommonArgConfig:

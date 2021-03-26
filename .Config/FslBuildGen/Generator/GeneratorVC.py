@@ -31,7 +31,7 @@
 #
 #****************************************************************************************************************************************************
 
-from typing import Any
+#from typing import Any
 from typing import Dict
 from typing import Iterable
 from typing import List
@@ -41,19 +41,21 @@ from typing import Tuple
 from typing import Union
 from FslBuildGen import IOUtil
 from FslBuildGen import Util
-from FslBuildGen.BasicConfig import BasicConfig
+#from FslBuildGen.BasicConfig import BasicConfig
 from FslBuildGen.Build.DataTypes import CommandType
 from FslBuildGen.BuildContent.PathRecord import PathRecord
 from FslBuildGen.Config import Config
 from FslBuildGen.DataTypes import AccessType
-from FslBuildGen.DataTypes import BuildVariantConfig
+#from FslBuildGen.DataTypes import BuildVariantConfig
 from FslBuildGen.DataTypes import ExternalDependencyType
 from FslBuildGen.DataTypes import PackageLanguage
 from FslBuildGen.DataTypes import PackageType
+from FslBuildGen.DataTypes import SpecialFiles
 from FslBuildGen.DataTypes import VariantType
 from FslBuildGen.DataTypes import VisualStudioVersion
 from FslBuildGen.Exceptions import InternalErrorException
 from FslBuildGen.Exceptions import UnsupportedException
+from FslBuildGen.Generator import GitIgnoreHelper
 from FslBuildGen.Generator.ExceptionsVC import PackageDuplicatedWindowsVisualStudioProjectIdException
 from FslBuildGen.Generator.GeneratorBase import GeneratorBase
 from FslBuildGen.Generator.GeneratorConfig import GeneratorConfig
@@ -108,7 +110,7 @@ class TemplateCache(object):
         super().__init__()
         self.__Dict = {} # type: Dict[Tuple[ToolConfigTemplateFolder,int], GeneratorVCTemplateManager]
 
-    def GetTemplate(self, log: Log, generatorConfig: GeneratorVSConfig, packageLanguage: int,
+    def GetTemplate(self, log: Log, generatorConfig: GeneratorVSConfig, packageLanguage: PackageLanguage,
                     generatorTemplateInfo: GeneratorVSTemplateInfo) -> GeneratorVCTemplate:
         templateManager = self.__GetTemplateManager(log, generatorTemplateInfo.TemplateFolder, generatorConfig.VsVersion)
         languageTemplates = templateManager.TryGetLanguageTemplates(packageLanguage)
@@ -135,7 +137,6 @@ class VSPackageManager:
 
 class LocalMagicFilenames:
     BuildProject = "BuildProject.bat"
-    StartProject = ".StartProject.bat"
     RunProject = "RunProject.bat"
 
 class LocalMagicBuildVariants:
@@ -151,6 +152,7 @@ class GeneratorVC(GeneratorBase):
         self.__ActiveThirdPartyLibsDir = activeThirdPartyLibsDir
 
         windows10SDKVersion = self.__DetectVS10SDKVersion(config, generatorConfig.VsVersion)
+        config.LogPrintVerbose(1, "  Generating Visual Studio build files")
 
         # for now we assume all packages are using the same language
         packageLanguage = config.ToolConfig.DefaultPackageLanguage
@@ -182,6 +184,7 @@ class GeneratorVC(GeneratorBase):
                     self.__GenerateRunProjectFile(config, package, generatorConfig.PlatformName, template.GetBatTemplate(), generatorConfig.VsVersion)
 
         self.__ValidateProjectIds(packages)
+        config.LogPrintVerbose(1, "  Projects generated")
 
     def __DetectVS10SDKVersion(self, log: Log, vsVersion: int) -> Optional[str]:
         if vsVersion != VisualStudioVersion.VS2017 and vsVersion != VisualStudioVersion.VS2019:
@@ -194,7 +197,7 @@ class GeneratorVC(GeneratorBase):
     def __CheckProjectIds(self, packages: List[Package]) -> None:
         for package in packages:
             if package.Type == PackageType.Library or package.Type == PackageType.Executable or package.Type == PackageType.HeaderLibrary:
-                if package.ResolvedPlatform is None or package.ResolvedPlatform.ProjectId is None:
+                if package.CustomInfo is None or package.CustomInfo.VisualStudioProjectGUID is None:
                     raise XmlFormatException("Missing project id for windows platform for package {0}".format(package.Name))
 
 
@@ -204,16 +207,16 @@ class GeneratorVC(GeneratorBase):
             if package.Type == PackageType.Executable and package.ResolvedPlatform != None:
                 if package.ResolvedPlatform is None:
                     raise Exception("Invalid package")
-                idDict[package.ResolvedPlatform.ProjectId] = package
+                idDict[package.CustomInfo.VisualStudioProjectGUID] = package
 
         for package in packages:
             if package.Type == PackageType.Library or package.Type == PackageType.HeaderLibrary:
-                if package.ResolvedPlatform is None or package.ResolvedPlatform.ProjectId is None:
+                if package.CustomInfo is None or package.CustomInfo.VisualStudioProjectGUID is None:
                     raise Exception("Invalid package")
-                if package.ResolvedPlatform.ProjectId in idDict:
-                    raise PackageDuplicatedWindowsVisualStudioProjectIdException(package, idDict[package.ResolvedPlatform.ProjectId], package.ResolvedPlatform.ProjectId)
+                if package.CustomInfo.VisualStudioProjectGUID in idDict:
+                    raise PackageDuplicatedWindowsVisualStudioProjectIdException(package, idDict[package.CustomInfo.VisualStudioProjectGUID], package.CustomInfo.VisualStudioProjectGUID)
                 else:
-                    idDict[package.ResolvedPlatform.ProjectId] = package
+                    idDict[package.CustomInfo.VisualStudioProjectGUID] = package
 
 
     def __GenerateLibraryBuildFile(self, config: Config,
@@ -224,7 +227,7 @@ class GeneratorVC(GeneratorBase):
                                    vsVersion: int,
                                    windows10SDKVersion: Optional[str]) -> None:
 
-        if package.ResolvedPlatform is None or package.ResolvedPlatform.ProjectId is None:
+        if package.CustomInfo is None or package.CustomInfo.VisualStudioProjectGUID is None:
             raise XmlFormatException("Missing project id for windows platform for package {0}".format(package.Name))
         if (package.ResolvedBuildSourceFiles is None or package.AbsolutePath is None or package.ResolvedContentBuilderBuildInputFiles is None or
             package.ResolvedBuildPath is None):
@@ -235,7 +238,7 @@ class GeneratorVC(GeneratorBase):
 
         strCurrentYear = config.CurrentYearString
         strPackageCreationYear = strCurrentYear if package.CreationYear is None else package.CreationYear
-        strPackageCompanyName = package.CompanyName
+        strPackageCompanyName = package.CompanyName.Value
 
         slnSnippet1 = self.__GenerateSLNPackageVariantConfig(variantHelper, template.SLNSnippet1, package)
         slnSnippet2 = self.__GenerateSLNPackageVariants(variantHelper, template.SLNSnippet2)
@@ -247,7 +250,7 @@ class GeneratorVC(GeneratorBase):
 
         build = template.TemplateSLN
         build = build.replace("##PACKAGE_TARGET_NAME##", targetName)
-        build = build.replace("##PACKAGE_PLATFORM_PROJECT_ID##", package.ResolvedPlatform.ProjectId)
+        build = build.replace("##PACKAGE_PLATFORM_PROJECT_ID##", package.CustomInfo.VisualStudioProjectGUID)
         build = build.replace("##PACKAGE_LIBRARY_DEPENDENCIES1##", libDep1SLN)
         build = build.replace("##PACKAGE_LIBRARY_DEPENDENCIES2##", libDep2SLN)
         build = build.replace("##PACKAGE_LIBRARY_DEPENDENCIES3##", libDep3SLN)
@@ -277,7 +280,7 @@ class GeneratorVC(GeneratorBase):
         includeFiles = self.__CreateVisualStudioStyleFileList(template.AddHeaderFile, resolvedBuildAllIncludeFiles)
         sourceFiles = self.__CreateVisualStudioStyleFileList(template.AddSourceFile, package.ResolvedBuildSourceFiles)
         contentSourceFiles = self.__CreateContentSourceFilesList(template.Snippet9, template.Snippet9_1, package.ResolvedContentBuilderBuildInputFiles)
-
+        natvisFile = self.__CreateNatvis(template.AddNatvisFile, package)
 
         variantConfigurations = self.__VariantSimpleReplace(variantHelper, template.VariantConfiguration, package)
         importGroups = self.__GenerateImportGroups(variantHelper, template.VariantPropertySheets, package)
@@ -293,6 +296,7 @@ class GeneratorVC(GeneratorBase):
         featureList = [entry.Name for entry in package.ResolvedAllUsedFeatures]
         strFeatureList = ",".join(featureList)
 
+
         build = template.Master
         build = build.replace("##ADD_PROJECT_CONFIGURATIONS##", projectionConfigurations)
         build = build.replace("##ADD_PROJECT_REFERENCES##", libDepVC)
@@ -306,7 +310,8 @@ class GeneratorVC(GeneratorBase):
         build = build.replace("##ADD_COPY_FILES_TO_OUTPUT##", copyFileToFolders)
         build = build.replace("##SNIPPET8##", compilerSettingsGroups)
         build = build.replace("##ADD_CUSTOM_BUILD_FILES##", contentSourceFiles)
-        build = build.replace("##PACKAGE_PLATFORM_PROJECT_ID##", package.ResolvedPlatform.ProjectId)
+        build = build.replace("##ADD_NATVIS_FILE##", natvisFile)
+        build = build.replace("##PACKAGE_PLATFORM_PROJECT_ID##", package.CustomInfo.VisualStudioProjectGUID)
         build = build.replace("##PACKAGE_TARGET_NAME##", targetName)
         build = build.replace("##FEATURE_LIST##", strFeatureList)
         build = build.replace("##PLATFORM_NAME##", platformName)
@@ -336,13 +341,12 @@ class GeneratorVC(GeneratorBase):
         filterFile = self.__TryGenerateFilterFile(config, package, template, targetName)
 
         # generate bat file
-        startProjectFile = self.__TryGenerateProjectBatFile(config, package, batTemplate.TemplateStartBat, batTemplate.TemplateSnippetErrorCheck, vsVersion, platformName, False)
         buildProjectFile = self.__TryPrepareProjectBatFile(config, package, batTemplate.TemplateBuildBat, batTemplate.TemplateSnippetErrorCheck, vsVersion, targetName, strFeatureList, platformName)
         runProjectFile = self.__TryPrepareProjectBatFile(config, package, batTemplate.TemplateRunBat, batTemplate.TemplateSnippetErrorCheck, vsVersion, targetName, strFeatureList, platformName)
 
 
         dstName = package.Name
-        if (package.ResolvedPlatform is None or package.ResolvedPlatform.ProjectId is None):
+        if (package.CustomInfo is None or package.CustomInfo.VisualStudioProjectGUID is None):
             raise InternalErrorException("Could not find project name")
             #dstName = 'test'
         #dstName = 'test'
@@ -351,8 +355,6 @@ class GeneratorVC(GeneratorBase):
         dstFileFilter = IOUtil.Join(package.AbsolutePath, dstName + ".{0}".format(template.FilterExtension))
 
         dstFileNuGetConfig = IOUtil.Join(package.AbsolutePath, "packages.config")
-
-        dstFileStartProject = IOUtil.Join(package.AbsolutePath, LocalMagicFilenames.StartProject)
 
         buildBasePath = IOUtil.Join(package.AbsolutePath, package.ResolvedBuildPath)
         dstFileBuildProject = IOUtil.Join(buildBasePath, LocalMagicFilenames.BuildProject)
@@ -364,8 +366,6 @@ class GeneratorVC(GeneratorBase):
             if filterFile is not None:
                 IOUtil.WriteFileIfChanged(dstFileFilter, filterFile)
 
-            if startProjectFile is not None:
-                IOUtil.WriteFileIfChanged(dstFileStartProject, startProjectFile)
             if buildProjectFile is not None:
                 IOUtil.WriteFileIfChanged(dstFileBuildProject, buildProjectFile)
             if runProjectFile is not None:
@@ -409,13 +409,21 @@ class GeneratorVC(GeneratorBase):
         itemGroupHeader = self.__GenerateItemGroup(template.FilterItemGroup, template.FilterItemHeader, headerFiles)
         itemGroupSource = self.__GenerateItemGroup(template.FilterItemGroup, template.FilterItemSource, sourceFiles)
         itemGroupShader = self.__GenerateItemGroup(template.FilterItemGroup, template.FilterItemShader, shaderFiles)
+        itemGroupNatvis = self.__GenerateNatvisItemGroup(template.FilterItemGroupNatvis, package)
 
         content = template.FilterMaster
         content = content.replace("##PACKAGE_TARGET_NAME##", packageTargetName)
         content = content.replace("##ITEM_GROUP_HEADER##", itemGroupHeader)
         content = content.replace("##ITEM_GROUP_SOURCE##", itemGroupSource)
         content = content.replace("##ITEM_GROUP_SHADER##", itemGroupShader)
+        content = content.replace("##ITEM_GROUP_NATVIS##", itemGroupNatvis)
         return content
+
+    def __GenerateNatvisItemGroup(self, groupSnippet: str, package: Package) -> str:
+        if len(groupSnippet) <= 0 or not self.__ContainsNatvis(package):
+            return ""
+        content = groupSnippet.replace("##FILENAME##", SpecialFiles.Natvis)
+        return "\n{0}".format(content)
 
     def __GenerateItemGroup(self, groupSnippet: str, snippet: str, files: Optional[List[str]]) -> str:
         if files is None or len(files) <= 0:
@@ -424,6 +432,7 @@ class GeneratorVC(GeneratorBase):
         content = ""
         for entry in files:
             itemContent = snippet
+            entry = entry.replace("/", "\\")
             content += "\n" + itemContent.replace("##FILENAME##", entry)
         groupContent = groupContent.replace("##ITEMS##", content)
         return groupContent
@@ -555,7 +564,7 @@ class GeneratorVC(GeneratorBase):
                                     useEnvironmentConfig: bool) -> Optional[str]:
         if strBatTemplate is None or package.AbsolutePath is None:
             return None
-        projectPath = config.ToDosPath(package.AbsolutePath)
+        projectPath = config.ToolConfig.ToDosPath(package.AbsolutePath)
 
         featureList = []
         if not useEnvironmentConfig:
@@ -703,6 +712,18 @@ class GeneratorVC(GeneratorBase):
         result = result.replace("##SNIPPET##", fileEntries)
         return result
 
+    def __ContainsNatvis(self, package: Package) -> bool:
+        for entry in package.ResolvedSpecialFiles:
+            if entry.SourcePath == SpecialFiles.Natvis:
+                return True
+        return False
+
+    def __CreateNatvis(self, snippetAddNatvisFile: str, package: Package) -> str:
+        if len(snippetAddNatvisFile) <= 0 or not self.__ContainsNatvis(package):
+            return ""
+        content = snippetAddNatvisFile.replace("##FILENAME##", SpecialFiles.Natvis)
+        return "\n{0}".format(content)
+
 
     def __CreateVisualStudioStyleList(self, entries: Union[List[str], Set[str]]) -> str:
         if entries is not None and len(entries) > 0:
@@ -825,7 +846,7 @@ class GeneratorVC(GeneratorBase):
                                                     package: Package,
                                                     includeDirs: List[str],
                                                     defines: List[PackageDefine],
-                                                    variantExtDeps: List[PackageExternalDependency]) -> str:
+                                                    variantExtDeps: List[Union[PackageExternalDependency, PackagePlatformExternalDependency]]) -> str:
         includeDirs = self.__FixIncludes(includeDirs)
         if self.UsingLinuxTools:
             includeDirs = self.__FixIncludesForLinuxTools(config, package, includeDirs)
@@ -856,7 +877,7 @@ class GeneratorVC(GeneratorBase):
         return section
 
 
-    def __FindByName(self, variantExtDeps: List[PackageExternalDependency], name: str) -> bool:
+    def __FindByName(self, variantExtDeps: List[Union[PackageExternalDependency, PackagePlatformExternalDependency]], name: str) -> bool:
         for entry in variantExtDeps:
             if entry.Name == name:
                 return True
@@ -865,7 +886,7 @@ class GeneratorVC(GeneratorBase):
 
     def AddOption(self, option: PackagePlatformVariantOption,
                   includeDirs: List[str],
-                  rVariantExtDeps: List[PackageExternalDependency],
+                  rVariantExtDeps: List[Union[PackageExternalDependency, PackagePlatformExternalDependency]],
                   defines: List[PackageDefine]) -> None:
         # add external dependencies
         for entry1 in option.ExternalDependencies:
@@ -888,12 +909,12 @@ class GeneratorVC(GeneratorBase):
                                          snippet: str, subSnippet1: str, subSnippet2: str,
                                          package: Package) -> str:
         if package.ResolvedBuildAllIncludeDirs is None:
-            raise Exception("Invalid package")
+            raise Exception("Invalid package '{0}' as package.ResolvedBuildAllIncludeDirs is None".format(package.NameInfo.FullName))
         includeDirs = package.ResolvedBuildAllIncludeDirs  # type: List[str]
         defines = package.ResolvedBuildAllDefines  # type: List[PackageDefine]
 
         # Process virtual variants
-        variantExtDeps = self.__GetExternalLibraryDependencies(package)
+        variantExtDeps = list(self.__GetExternalLibraryDependencies(package)) # type: List[Union[PackageExternalDependency, PackagePlatformExternalDependency]]
         if VariantType.Virtual in variantHelper.VariantTypeDict:
             for variant in variantHelper.VariantTypeDict[VariantType.Virtual]:
                 if not len(variant.Options) == 1:
@@ -962,8 +983,8 @@ class GeneratorVC(GeneratorBase):
         if len(package.ResolvedDirectDependencies) > 0:
             strContent += '\tProjectSection(ProjectDependencies) = postProject\n'
             for dep in package.ResolvedDirectDependencies:
-                if self.__IsProject(dep.Package) and dep.Package.ResolvedPlatform is not None and dep.Package.ResolvedPlatform.ProjectId is not None:
-                    strContent += '\t\t{%s} = {%s}\n' % (dep.Package.ResolvedPlatform.ProjectId, dep.Package.ResolvedPlatform.ProjectId)
+                if self.__IsProject(dep.Package) and dep.Package.ResolvedPlatform is not None and dep.Package.CustomInfo.VisualStudioProjectGUID is not None:
+                    strContent += '\t\t{%s} = {%s}\n' % (dep.Package.CustomInfo.VisualStudioProjectGUID, dep.Package.CustomInfo.VisualStudioProjectGUID)
             strContent += '\tEndProjectSection\n'
         return strContent
 
@@ -977,14 +998,14 @@ class GeneratorVC(GeneratorBase):
         for entry in package.ResolvedBuildOrder:
             if self.__IsProject(entry) and entry.ResolvedPlatform is not None and package != entry:
                 projectName = entry.Name
-                projectPath = config.TryLegacyToDosPathDirectConversion(entry.AbsolutePath)
+                projectPath = config.ToolConfig.TryLegacyToDosPathDirectConversion(entry.AbsolutePath)
                 # To use relative paths instead of absolute
                 # NOTE: This was disabled because it doesn't play well with 'msbuild' (even though visual studio has no problems with it).
                 #projectPath = config.TryLegacyToDosPath(entry.AbsolutePath)
                 projectPath = "{0}\\{1}.{2}".format(projectPath, projectName, projectExtension)
-                if entry.ResolvedPlatform.ProjectId is None:
+                if entry.CustomInfo.VisualStudioProjectGUID is None:
                     raise Exception("Invalid package")
-                projectId = entry.ResolvedPlatform.ProjectId
+                projectId = entry.CustomInfo.VisualStudioProjectGUID
                 content = templateAddProject
                 content = content.replace("##PACKAGE_TARGET_NAME##", projectName)
                 content = content.replace("##PACKAGE_PROJECT_FILE##", projectPath)
@@ -1011,9 +1032,9 @@ class GeneratorVC(GeneratorBase):
 
         subContent = ""
         for entry in package.ResolvedBuildOrder:
-            if self.__IsProject(entry) and entry.ResolvedPlatform is not None and entry.ResolvedPlatform.ProjectId is not None and package != entry:
+            if self.__IsProject(entry) and entry.CustomInfo.VisualStudioProjectGUID is not None and package != entry:
                 section = "\n" + subSnippet
-                section = section.replace("##PACKAGE_PLATFORM_PROJECT_ID##", entry.ResolvedPlatform.ProjectId)
+                section = section.replace("##PACKAGE_PLATFORM_PROJECT_ID##", entry.CustomInfo.VisualStudioProjectGUID)
                 subContent += section
 
         content = snippet
@@ -1022,10 +1043,10 @@ class GeneratorVC(GeneratorBase):
 
 
     def __GenerateSLNPackageDependency(self, snippet: str, package: Package, sectionVariantName1: str, sectionVariantName2: str) -> str:
-        if package.ResolvedPlatform is None or package.ResolvedPlatform.ProjectId is None:
+        if package.ResolvedPlatform is None or package.CustomInfo.VisualStudioProjectGUID is None:
             raise Exception("Invalid package")
         section = snippet
-        section = section.replace("##PACKAGE_PLATFORM_PROJECT_ID##", package.ResolvedPlatform.ProjectId)
+        section = section.replace("##PACKAGE_PLATFORM_PROJECT_ID##", package.CustomInfo.VisualStudioProjectGUID)
         section = section.replace("##VARIANT1##", sectionVariantName1)
         section = section.replace("##VARIANT2##", sectionVariantName2)
         return section
@@ -1071,10 +1092,10 @@ class GeneratorVC(GeneratorBase):
         if len(package.ResolvedBuildOrder) > 1:
             for entry in package.ResolvedBuildOrder:
                 if self.__IsProject(entry) and entry.ResolvedPlatform is not None and package != entry:
-                    if entry.AbsolutePath is None or entry.ResolvedPlatform.ProjectId is None:
+                    if entry.AbsolutePath is None or entry.CustomInfo.VisualStudioProjectGUID is None:
                         raise Exception("Invalid package")
-                    projectPath = "{0}\\{1}.{2}".format(config.ToPath(entry.AbsolutePath).replace('/', '\\'), entry.Name, projectExtension)
-                    projectId = entry.ResolvedPlatform.ProjectId
+                    projectPath = "{0}\\{1}.{2}".format(config.ToolConfig.ToPath(entry.AbsolutePath).replace('/', '\\'), entry.Name, projectExtension)
+                    projectId = entry.CustomInfo.VisualStudioProjectGUID
                     strContent = snippet.replace("##PACKAGE_DEPENDENCY_PROJECT_PATH##", projectPath)
                     strContent = strContent.replace("##PACKAGE_DEPENDENCY_PROJECTID##", projectId.lower())
                     strContent = strContent.replace("##PACKAGE_NAME##", entry.Name)
@@ -1095,14 +1116,14 @@ class GeneratorVC(GeneratorBase):
             if entry.Version is None:
                 raise Exception("PackageReference version can not be null")
             strContent = snippet.replace("##PACKAGE_NAME##", entry.Name)
-            strContent = strContent.replace("##PACKAGE_VERSION##", entry.Version)
+            strContent = strContent.replace("##PACKAGE_VERSION##", str(entry.Version))
             res.append(strContent)
         return "\n".join(res)
 
 
     def __GenerateVCExternalLinkDependencies(self, snippet1: str, snippet2: str,
                                              package: Package,
-                                             variantExtDeps: List[PackageExternalDependency],
+                                             variantExtDeps: List[Union[PackageExternalDependency, PackagePlatformExternalDependency]],
                                              useDebugLibs: bool) -> str:
         strContent = ""
         extDeps = Util.FilterByType(package.ResolvedDirectExternalDependencies, ExternalDependencyType.StaticLib)
@@ -1130,7 +1151,7 @@ class GeneratorVC(GeneratorBase):
         return strContent
 
 
-    def __GenerateVCExternalLibDependencies(self, package: Package, variantExtDeps: List[PackageExternalDependency]) -> str:
+    def __GenerateVCExternalLibDependencies(self, package: Package, variantExtDeps: List[Union[PackageExternalDependency, PackagePlatformExternalDependency]]) -> str:
         strContent = ""
         extDeps = Util.FilterByType(package.ResolvedDirectExternalDependencies, ExternalDependencyType.StaticLib)
         extDeps2 = Util.FilterByType(variantExtDeps, ExternalDependencyType.StaticLib)
@@ -1171,7 +1192,7 @@ class GeneratorVC(GeneratorBase):
         return self.__GetExternalDependenciesByType(package, ExternalDependencyType.Assembly)
 
 
-    def __GetExternalDependenciesByType(self, package: Package, extDepType: int) -> List[PackageExternalDependency]:
+    def __GetExternalDependenciesByType(self, package: Package, extDepType: ExternalDependencyType) -> List[PackageExternalDependency]:
         foundDeps = Util.FilterByType(package.ResolvedDirectExternalDependencies, extDepType)
 
         for entry in package.ResolvedAllDependencies:
@@ -1249,9 +1270,9 @@ class GeneratorVC(GeneratorBase):
                 raise Exception("Invalid package")
             content = "\n" + nuGetPackageConfig.PackageEntry
             content = content.replace("##PACKAGE_NAME##", entry.Name)
-            if entry.PackageManager.PackageVersion is None or entry.PackageManager.PackageTargetFramework is None:
+            if entry.PackageManager.Version is None or entry.PackageManager.PackageTargetFramework is None:
                 raise Exception("Not supported")
-            content = content.replace("##PACKAGE_VERSION##", entry.PackageManager.PackageVersion)
+            content = content.replace("##PACKAGE_VERSION##", entry.PackageManager.Version)
             content = content.replace("##PACKAGE_TARGET_FRAMEWORK##", entry.PackageManager.PackageTargetFramework)
             contentPackageList += content
 
@@ -1262,7 +1283,7 @@ class GeneratorVC(GeneratorBase):
     def __FixIncludesForLinuxTools(self, config: Config, package: Package, includeDirs: List[str]) -> List[str]:
         if package.AbsolutePath is None:
             raise Exception("Invalid package")
-        packagePath = config.ToBashPath(package.AbsolutePath)
+        packagePath = config.ToolConfig.ToBashPath(package.AbsolutePath)
         packagePath = packagePath.replace('$', '__')
         basePath = self.__GenerateBackpedalToRoot(packagePath)
 
@@ -1294,7 +1315,7 @@ class GeneratorVC(GeneratorBase):
 
 
     def __ToRemotePath(self, config: Config, path: str) -> str:
-        path = config.ToBashPath(path)
+        path = config.ToolConfig.ToBashPath(path)
         path = path.replace('$', '__')
         path = IOUtil.Join("$(RemoteRootDir)", path)
         return path
@@ -1363,8 +1384,8 @@ class GeneratorVCUtil(object):
         # ${PACKAGE_BUILD_PATH}/${PACKAGE_TARGET_NAME}/${PACKAGE_NORMAL_VARIANT_NAME_HINT}${CONFIGURATION}${PROJECT_VARIANT_NAME}
         targetName = GeneratorVCUtil.GetTargetName(package)
 
-        # $(SolutionDir)\build\##PLATFORM_NAME##\##PACKAGE_TARGET_NAME##\$(Configuration)##PROJECT_VARIANT_NAME##\
-        # $(SolutionDir)\build\Windows          \S06_Texturing          \$(Configuration)_$(FSL_GLES_NAME)\
+        # $(SolutionDir)\build\##PLATFORM_NAME##\##PACKAGE_TARGET_NAME##\$(Configuration)\##PROJECT_FLAVOR_NAME####PROJECT_VARIANT_NAME##\
+        # $(SolutionDir)\build\Windows          \S06_Texturing          \$(Configuration)\_$(FSL_GLES_NAME)\
         allVariantNames = GeneratorVCUtil.GenerateSLNVariantNames(variantHelper)
         if len(allVariantNames) < 1:
             allVariantNames.append('')
@@ -1413,7 +1434,7 @@ class GeneratorVCUtil(object):
         executableReport = GeneratorVCUtil.TryGenerateExecutableReport(log, generatorName, package, variantHelper,
                                                                        generatorVSConfig, generatorTemplateInfo)
 
-        return PackageGeneratorReport(buildReport, executableReport, variableReport)
+        return PackageGeneratorReport(buildReport, executableReport, variableReport, None)
 
 
     @staticmethod

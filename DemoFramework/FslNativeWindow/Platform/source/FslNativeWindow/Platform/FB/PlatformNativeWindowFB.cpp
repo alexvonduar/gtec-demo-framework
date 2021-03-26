@@ -36,7 +36,7 @@
 #include <FslBase/Exceptions.hpp>
 #include <FslBase/Math/Point2.hpp>
 #include <FslBase/Math/Vector2.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/Log/Math/LogRectangle.hpp>
 #include <FslNativeWindow/Base/INativeWindowEventQueue.hpp>
 #include <FslNativeWindow/Base/NativeWindowEventHelper.hpp>
@@ -70,7 +70,7 @@ namespace Fsl
       std::ifstream fileStream("KBevent.txt", std::ios::in);
       if (!fileStream.good())
       {
-        FSLLOG("Keyboard Event File Could not be oppened");
+        FSLLOG3_INFO("Keyboard Event File Could not be oppened");
         return false;
       }
       fileStream.seekg(0, std::ifstream::end);
@@ -79,7 +79,7 @@ namespace Fsl
       lSize = static_cast<int>(streamLength);
       if (0 == lSize)
       {
-        FSLLOG("WARNING No Keyboard Device could be found");
+        FSLLOG3_WARNING("No Keyboard Device could be found");
         return false;
       }
 
@@ -87,7 +87,7 @@ namespace Fsl
       // we only expect keyboard on event0 to event99
       if (lSize > 8)
       {
-        FSLLOG("WARNING Not a valid Event File found");
+        FSLLOG3_WARNING("Not a valid Event File found");
         return false;
       }
       std::string kbString;
@@ -101,7 +101,7 @@ namespace Fsl
 
       if (g_kbFd == -1)
       {
-        FSLLOG("WARNING Could Not Initialize Keyboard Device");
+        FSLLOG3_WARNING("Could Not Initialize Keyboard Device");
         return false;
       }
       return true;
@@ -298,7 +298,7 @@ namespace Fsl
     , m_allocationFunction(allocateWindowFunction ? allocateWindowFunction : AllocateWindow)
     , m_destroyDisplayFunc(systemParams.DestroyDisplayFunc)
   {
-    FSLLOG_DEBUG_WARNING_IF(!m_platformDisplay, "No display provided");
+    FSLLOG3_DEBUG_WARNING_IF(!m_platformDisplay, "No display provided");
 
     auto eventQueue = setup.GetEventQueue().lock();
     if (eventQueue)
@@ -342,17 +342,17 @@ namespace Fsl
 
   PlatformNativeWindowFB::PlatformNativeWindowFB(const NativeWindowSetup& nativeWindowSetup, const PlatformNativeWindowParams& platformWindowParams,
                                                  const PlatformNativeWindowAllocationParams* const pPlatformCustomWindowAllocationParams)
-    : PlatformNativeWindow(nativeWindowSetup, platformWindowParams, pPlatformCustomWindowAllocationParams)
+    : PlatformNativeWindow(nativeWindowSetup, platformWindowParams, pPlatformCustomWindowAllocationParams, NativeWindowCapabilityFlags::NoFlags)
     , m_destroyWindowFunc(platformWindowParams.DestroyWindowFunc)
   {
     m_platformWindow = (platformWindowParams.PlatformWindow);
-    FSLLOG_DEBUG_WARNING_IF(!m_platformWindow, "No window available");
+    FSLLOG3_DEBUG_WARNING_IF(!m_platformWindow, "No window available");
 
     g_eventQueue = nativeWindowSetup.GetEventQueue();
 
     if (!InitKB())
     {
-      FSLLOG("WARNING: Failed to initialize keyboard.");
+      FSLLOG3_WARNING("Failed to initialize keyboard.");
     }
     else
     {
@@ -387,34 +387,18 @@ namespace Fsl
   }
 
 
-  bool PlatformNativeWindowFB::TryGetDPI(Vector2& rDPI) const
+  bool PlatformNativeWindowFB::TryGetNativeSize(PxPoint2& rSize) const
   {
     {    // Remove this once its implemented
       static bool warnedNotImplementedOnce = false;
       if (!warnedNotImplementedOnce)
       {
-        FSLLOG("PlatformNativeWindowFB: TryGetDPI is not implemented on this backend.");
+        FSLLOG3_INFO("PlatformNativeWindowFB: TryGetNativeSize is not implemented on this backend.");
         warnedNotImplementedOnce = true;
       }
     }
 
-    rDPI = Vector2();
-    return false;
-  }
-
-
-  bool PlatformNativeWindowFB::TryGetSize(Point2& rSize) const
-  {
-    {    // Remove this once its implemented
-      static bool warnedNotImplementedOnce = false;
-      if (!warnedNotImplementedOnce)
-      {
-        FSLLOG("PlatformNativeWindowFB: TryGetSize is not implemented on this backend.");
-        warnedNotImplementedOnce = true;
-      }
-    }
-
-    rSize = Point2();
+    rSize = PxPoint2();
     return false;
   }
 }    // namespace Fsl

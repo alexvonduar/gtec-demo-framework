@@ -31,7 +31,7 @@
 
 #include <Shared/HDR/SkyboxTonemapping/OptionParser.hpp>
 #include <FslBase/BasicTypes.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/String/StringParseUtil.hpp>
 #include <FslBase/Getopt/OptionBaseValues.hpp>
 #include <FslBase/Exceptions.hpp>
@@ -66,14 +66,14 @@ namespace Fsl
   }
 
 
-  OptionParseResult::Enum OptionParser::OnParse(const int32_t cmdId, const char* const pszOptArg)
+  OptionParseResult OptionParser::OnParse(const int32_t cmdId, const StringViewLite& strOptArg)
   {
-    uint32_t uintValue;
+    uint32_t uintValue = 0;
 
     switch (cmdId)
     {
     case CommandId::Scene:
-      if (StringParseUtil::Parse(uintValue, pszOptArg) <= 0)
+      if (StringParseUtil::Parse(uintValue, strOptArg) <= 0)
       {
         return OptionParseResult::Failed;
       }
@@ -98,12 +98,12 @@ namespace Fsl
         SetSceneMask(SceneFlags::Scene5);
         break;
       default:
-        FSLLOG_ERROR("Scene is out of range: " << uintValue);
+        FSLLOG3_ERROR("Scene is out of range: {}", uintValue);
         return OptionParseResult::Failed;
       }
       return OptionParseResult::Parsed;
     case CommandId::Mask:
-      if (StringParseUtil::Parse(uintValue, pszOptArg) <= 0)
+      if (StringParseUtil::Parse(uintValue, strOptArg) <= 0)
       {
         return OptionParseResult::Failed;
       }

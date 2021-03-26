@@ -34,7 +34,6 @@
 // Make sure Common.hpp is the first include file (to make the error message as helpful as possible when disabled)
 #include <FslUtil/OpenVG/Common.hpp>
 #include <VG/openvg.h>
-#include <FslBase/Noncopyable.hpp>
 #include <FslBase/Math/Vector2.hpp>
 #include <vector>
 
@@ -42,16 +41,19 @@ namespace Fsl
 {
   namespace OpenVG
   {
-    class VGFontBuffer : private Noncopyable
+    class VGFontBuffer
     {
       VGFont m_font;
 
     public:
+      VGFontBuffer(const VGFontBuffer&) = delete;
+      VGFontBuffer& operator=(const VGFontBuffer&) = delete;
+
       //! @brief Create a uninitialized path buffer
       VGFontBuffer();
 
       //! @brief Create a initialized path buffer
-      VGFontBuffer(const int32_t capacityHint);
+      explicit VGFontBuffer(const int32_t capacityHint);
 
       ~VGFontBuffer();
 

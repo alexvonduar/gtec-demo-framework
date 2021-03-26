@@ -31,18 +31,19 @@
  *
  ****************************************************************************************************************************************************/
 
-#include <FslBase/Noncopyable.hpp>
 #include <FslBase/Math/Point2.hpp>
 #include <FslDemoApp/Shared/Host/DemoHostFeature.hpp>
+#include <FslDemoApp/Shared/Host/DemoWindowMetrics.hpp>
 #include <FslDemoHost/Base/SwapBuffersResult.hpp>
 
 namespace Fsl
 {
-  class IDemoHost : public Noncopyable
+  class IDemoHost
   {
   public:
+    IDemoHost(const IDemoHost&) = delete;
+    IDemoHost& operator=(const IDemoHost&) = delete;
     virtual ~IDemoHost() = default;
-
 
     //! @brief Called just after the demo host have been constructed to allow it to do a bit of post processing on a valid host object
     virtual void OnConstructed() = 0;
@@ -60,8 +61,8 @@ namespace Fsl
 
     //! @brief Get the currently active API
     virtual DemoHostFeature GetActiveAPI() const = 0;
-    //! @brief Get the current screen resolution
-    virtual Point2 GetScreenResolution() const = 0;
+    //! @brief Get the current window metrics
+    virtual DemoWindowMetrics GetWindowMetrics() const = 0;
     //! @brief Called to swap the main buffer.
     //! @return SwapBuffersResult::Completed on success, SwapBuffersResult::Failed if a error occurred.
     virtual SwapBuffersResult TrySwapBuffers() = 0;
@@ -70,6 +71,9 @@ namespace Fsl
     //! @param allowBlock if true the method is allowed to block for a extended period
     //         (for example it could wait for the next native message to arrive).
     virtual bool ProcessNativeMessages(const bool allowBlock) = 0;
+
+  protected:
+    IDemoHost() = default;
   };
 }
 

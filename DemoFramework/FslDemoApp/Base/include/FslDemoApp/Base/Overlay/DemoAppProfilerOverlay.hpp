@@ -32,8 +32,11 @@
  ****************************************************************************************************************************************************/
 
 #include <FslDemoApp/Base/Overlay/DemoAppProfilerGraph.hpp>
-#include <FslDemoApp/Base/Service/Profiler/ProfilerCustomCounterHandle.hpp>
+#include <FslDemoApp/Base/DemoAppStatsFlags.hpp>
+#include <FslDemoApp/Shared/Host/DemoWindowMetrics.hpp>
+#include <FslDemoService/Profiler/ProfilerCustomCounterHandle.hpp>
 #include <FslGraphics/Color.hpp>
+#include <fmt/format.h>
 #include <list>
 #include <memory>
 #include <string>
@@ -42,6 +45,7 @@
 namespace Fsl
 {
   class IBasic2D;
+  class ICpuStatsService;
   class IGraphicsService;
   class IProfilerService;
   struct Point2;
@@ -61,31 +65,37 @@ namespace Fsl
 
       CustomRecord()
       {
-        FormatString[0] = '%';
-        FormatString[1] = 'd';
+        FormatString[0] = '{';
+        FormatString[1] = '}';
         FormatString[2] = 0;
       }
 
-      CustomRecord(const ProfilerCustomCounterHandle& handle, const ProfilerCustomCounterDesc& desc,
-                   const std::shared_ptr<DemoAppProfilerGraph>& graph);
+      CustomRecord(const ProfilerCustomCounterHandle& handle, const ProfilerCustomCounterDesc& desc, std::shared_ptr<DemoAppProfilerGraph> graph);
     };
 
     std::shared_ptr<IProfilerService> m_profilerService;
     std::shared_ptr<IGraphicsService> m_graphicsService;
+    std::shared_ptr<ICpuStatsService> m_cpuStatsService;
+
     std::weak_ptr<IBasic2D> m_basic2D;
+
+    DemoAppStatsFlags m_logStatsFlags;
 
     DemoAppProfilerGraph m_graphTotal;
     DemoAppProfilerGraph m_graphUpdate;
     DemoAppProfilerGraph m_graphDraw;
+    DemoAppProfilerGraph m_graphCPU;
 
     uint32_t m_customConfigurationRevision;
     std::list<CustomRecord> m_customCounters;
 
+    fmt::memory_buffer m_scracthpad;
+
   public:
-    DemoAppProfilerOverlay(const ServiceProvider& serviceProvider);
+    DemoAppProfilerOverlay(const ServiceProvider& serviceProvider, const DemoAppStatsFlags& logStatsFlags);
     ~DemoAppProfilerOverlay();
 
-    void Draw(const Point2& screenResolution);
+    void Draw(const DemoWindowMetrics& windowMetrics);
 
   private:
     void MaintainCachedCustomEntries();

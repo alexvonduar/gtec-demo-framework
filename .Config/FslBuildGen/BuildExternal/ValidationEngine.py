@@ -37,19 +37,22 @@ from typing import Tuple
 import os
 import re
 import subprocess
+from enum import Enum
 from FslBuildGen import IOUtil
-from FslBuildGen.BasicConfig import BasicConfig
+from FslBuildGen import Util
 from FslBuildGen.BuildExternal.PackageExperimentalRecipe import PackageExperimentalRecipe
 from FslBuildGen.BuildExternal.PackageRecipeResult import PackageRecipeResult
 from FslBuildGen.BuildExternal.PackageRecipeResultFoundExecutable import PackageRecipeResultFoundExecutable
 from FslBuildGen.BuildExternal.PackageRecipeResultManager import PackageRecipeResultManager
 from FslBuildGen.DataTypes import BuildRecipeValidateCommand
 from FslBuildGen.DataTypes import BuildRecipeValidateMethod
+from FslBuildGen.ErrorHelpManager import ErrorHelpManager
 from FslBuildGen.Exceptions import GroupedException
+from FslBuildGen.Log import Log
 from FslBuildGen.Packages.Package import Package
 from FslBuildGen.PlatformUtil import PlatformUtil
 from FslBuildGen.Vars.VariableProcessor import VariableProcessor
-from FslBuildGen import Util
+from FslBuildGen.Version import Version
 from FslBuildGen.Xml.XmlExperimentalRecipe import XmlRecipeInstallation
 from FslBuildGen.Xml.XmlExperimentalRecipe import XmlRecipeValidateCommandAddHeaders
 from FslBuildGen.Xml.XmlExperimentalRecipe import XmlRecipeValidateCommandAddLib
@@ -58,9 +61,10 @@ from FslBuildGen.Xml.XmlExperimentalRecipe import XmlRecipeValidateCommandAddToo
 from FslBuildGen.Xml.XmlExperimentalRecipe import XmlRecipeValidateCommandEnvironmentVariable
 from FslBuildGen.Xml.XmlExperimentalRecipe import XmlRecipeValidateCommandFindFileInPath
 from FslBuildGen.Xml.XmlExperimentalRecipe import XmlRecipeValidateCommandFindExecutableFileInPath
+from FslBuildGen.Xml.XmlExperimentalRecipe import XmlRecipeValidateCommandFindExecutableFileInPathAddOnErrorWarning
 from FslBuildGen.Xml.XmlExperimentalRecipe import XmlRecipeValidateCommandPath
 
-class InstallationStatus(object):
+class InstallationStatus(Enum):
     NotInstalled = 0
     Installed = 1
     # There was a user environment error that caused the validation to fail.
@@ -87,11 +91,13 @@ class ErrorRecord(object):
 
 
 class ValidationEngine(object):
-    def __init__(self, basicConfig: BasicConfig, variableProcessor: VariableProcessor,
-                 packageRecipeResultManager: PackageRecipeResultManager) -> None:
-        self.__BasicConfig = basicConfig
+    def __init__(self, log: Log, variableProcessor: VariableProcessor,
+                 packageRecipeResultManager: PackageRecipeResultManager,
+                 errorHelpManager: ErrorHelpManager) -> None:
+        self.__Log = log
         self.__VariableProcessor = variableProcessor
         self.__PackageRecipeResultManager = packageRecipeResultManager
+        self.__ErrorHelpManager = errorHelpManager
 
 
     def Process(self, sourcePackage: Package) -> None:
@@ -116,13 +122,13 @@ class ValidationEngine(object):
         if sourceRecipe is None:
             raise Exception("Invalid recipe")
 
-        exceptionList = [Exception("Installation validation failed for package '{0}' recipe '{1}'".format(sourcePackage.Name, sourceRecipe.Name))]
+        exceptionList = [Exception("Installation validation failed for package '{0}' recipe '{1}'".format(sourcePackage.Name, sourceRecipe.FullName))]
         for errorRecord in errorRecordList:
             exceptionList.append(Exception(errorRecord.ToString()))
         raise GroupedException(exceptionList)
 
 
-    def GetInstallationStatus(self, sourcePackage: Package, rErrorRecordList: Optional[List[ErrorRecord]] = None) -> int:
+    def GetInstallationStatus(self, sourcePackage: Package, rErrorRecordList: Optional[List[ErrorRecord]] = None) -> InstallationStatus:
         packageRecipeResult = self.__PackageRecipeResultManager.AddIfMissing(sourcePackage.Name)
 
         sourceRecipe = sourcePackage.ResolvedDirectExperimentalRecipe
@@ -136,9 +142,9 @@ class ValidationEngine(object):
             return status
 
         if rErrorRecordList is None:
-            self.__BasicConfig.LogPrintWarning("Installation validation failed for package '{0}' recipe '{1}'".format(sourcePackage.Name, sourceRecipe.Name))
+            self.__Log.LogPrintWarning("Installation validation failed for package '{0}' recipe '{1}'".format(sourcePackage.Name, sourceRecipe.FullName))
             for errorRecord in errorRecordList:
-                self.__BasicConfig.LogPrintWarning(errorRecord.ToString())
+                self.__Log.LogPrintWarning(errorRecord.ToString())
         return status
 
 
@@ -146,7 +152,7 @@ class ValidationEngine(object):
         return errorClassification1 if errorClassification1 > errorClassification2 else errorClassification2
 
 
-    def __GetStatusFromErrorRecords(self, errorRecordList: List[ErrorRecord]) -> int:
+    def __GetStatusFromErrorRecords(self, errorRecordList: List[ErrorRecord]) -> InstallationStatus:
         errorClassification = ErrorClassification.NoError
         for record in errorRecordList:
             errorClassification = self.__ChoseMostSevereClasification(errorClassification, record.Classification)
@@ -154,7 +160,7 @@ class ValidationEngine(object):
         if errorClassification == ErrorClassification.NoError:
             return InstallationStatus.Installed
         elif errorClassification == ErrorClassification.Help:
-            return InstallationStatus.Installed
+            return InstallationStatus.NotInstalled
         elif errorClassification == ErrorClassification.Environment:
             return InstallationStatus.EnvironmentError
         elif errorClassification == ErrorClassification.Critical:
@@ -163,16 +169,16 @@ class ValidationEngine(object):
 
 
     def __GetInstallationStatus(self, rErrorRecordList: List[ErrorRecord], sourceRecipe: PackageExperimentalRecipe,
-                                recipeVariants: List[str], packageRecipeResult: PackageRecipeResult) -> int:
+                                recipeVariants: List[str], packageRecipeResult: PackageRecipeResult) -> InstallationStatus:
         if sourceRecipe.ValidateInstallation is None:
-            self.__BasicConfig.LogPrintVerbose(3, "WARNING: no intallation validation available for recipe '{0}'".format(sourceRecipe.Name))
+            self.__Log.LogPrintVerbose(3, "WARNING: no intallation validation available for recipe '{0}'".format(sourceRecipe.FullName))
             return InstallationStatus.Undefined
 
-        if self.__BasicConfig.Verbosity >= 1:
+        if self.__Log.Verbosity >= 1:
             if len(sourceRecipe.ValidateInstallation.CommandList) > 0:
-                self.__BasicConfig.LogPrint("Validating installation for '{0}'".format(sourceRecipe.Name))
+                self.__Log.LogPrint("Validating installation for '{0}'".format(sourceRecipe.FullName))
             else:
-                self.__BasicConfig.LogPrint("WARNING: No installation validation commands available for '{0}'".format(sourceRecipe.Name))
+                self.__Log.LogPrint("WARNING: No installation validation commands available for '{0}'".format(sourceRecipe.FullName))
 
         self.__DoValidateInstallation(rErrorRecordList, sourceRecipe, recipeVariants, packageRecipeResult)
 
@@ -181,7 +187,7 @@ class ValidationEngine(object):
 
     def __DoValidateInstallation(self, rErrorRecordList: List[ErrorRecord], sourceRecipe: PackageExperimentalRecipe,
                                  recipeVariants: List[str], packageRecipeResult: PackageRecipeResult) -> None:
-        self.__BasicConfig.PushIndent()
+        self.__Log.PushIndent()
         try:
             installationPath = sourceRecipe.ResolvedInstallLocation.ResolvedPath if sourceRecipe.ResolvedInstallLocation is not None else None
             validateInstallation = sourceRecipe.ValidateInstallation
@@ -193,14 +199,14 @@ class ValidationEngine(object):
             else:
                 for entry in recipeVariants:
                     installationPathCopy = IOUtil.Join(installationPath, entry) if installationPath is not None else None
-                    self.__BasicConfig.LogPrint("Recipe variant: {0}".format(entry))
-                    self.__BasicConfig.PushIndent()
+                    self.__Log.LogPrint("Recipe variant: {0}".format(entry))
+                    self.__Log.PushIndent()
                     try:
                         self.__DoValidate(rErrorRecordList, installationPathCopy, validateInstallation, packageRecipeResult)
                     finally:
-                        self.__BasicConfig.PopIndent()
+                        self.__Log.PopIndent()
         finally:
-            self.__BasicConfig.PopIndent()
+            self.__Log.PopIndent()
 
     def __DoValidate(self, rErrorRecordList: List[ErrorRecord], installationPath: Optional[str],
                      validateInstallation: XmlRecipeInstallation, packageRecipeResult: PackageRecipeResult) -> None:
@@ -237,7 +243,7 @@ class ValidationEngine(object):
             elif command.CommandType == BuildRecipeValidateCommand.AddTool:
                 if not isinstance(command, XmlRecipeValidateCommandAddTool):
                     raise Exception("Invalid command")
-                result = self.__ValidateAddTool(rErrorRecordList, installationPath, command)
+                result = self.__ValidateAddTool(rErrorRecordList, installationPath, command, packageRecipeResult)
             else:
                 raise Exception("Unknown validation command '{0}'".format(command.CommandName))
             if not result and not command.Help is None:
@@ -246,10 +252,10 @@ class ValidationEngine(object):
 
     def __ValidateEnvironmentVariable(self, rErrorRecordList: List[ErrorRecord], command: XmlRecipeValidateCommandEnvironmentVariable) -> bool:
         result, value = self.__DoValidateEnvironmentVariable(rErrorRecordList, command)
-        if self.__BasicConfig.Verbosity >= 1:
-            self.__BasicConfig.LogPrint("Validating environment variable '{0}' '{1}': {2}".format(command.Name, BuildRecipeValidateMethod.TryToString(command.Method, True), result))
-            if self.__BasicConfig.Verbosity >= 2:
-                self.__BasicConfig.LogPrint("  '{0}'".format(value))
+        if self.__Log.Verbosity >= 1:
+            self.__Log.LogPrint("Validating environment variable '{0}' '{1}': {2}".format(command.Name, BuildRecipeValidateMethod.TryToString(command.Method, True), result))
+            if self.__Log.Verbosity >= 2:
+                self.__Log.LogPrint("  '{0}'".format(value))
         return result
 
 
@@ -257,10 +263,10 @@ class ValidationEngine(object):
                        installationPath: Optional[str],
                        command: XmlRecipeValidateCommandPath) -> bool:
         result, value = self.__DoValidatePath(rErrorRecordList, installationPath, command)
-        if self.__BasicConfig.Verbosity >= 1:
-            self.__BasicConfig.LogPrint("Validating path '{0}' '{1}': {2}".format(command.Name, BuildRecipeValidateMethod.TryToString(command.Method, True), result))
-            if self.__BasicConfig.Verbosity >= 2:
-                self.__BasicConfig.LogPrint("  '{0}'".format(value))
+        if self.__Log.Verbosity >= 1:
+            self.__Log.LogPrint("Validating path '{0}' '{1}': {2}".format(command.Name, BuildRecipeValidateMethod.TryToString(command.Method, True), result))
+            if self.__Log.Verbosity >= 2:
+                self.__Log.LogPrint("  '{0}'".format(value))
         return result
 
 
@@ -268,13 +274,13 @@ class ValidationEngine(object):
                                  installationPath: Optional[str],
                                  command: XmlRecipeValidateCommandFindFileInPath) -> bool:
         result, value = self.__TryFindFileInPath(rErrorRecordList, installationPath, command.Name, command.ExpectedPath)
-        if self.__BasicConfig.Verbosity >= 1:
+        if self.__Log.Verbosity >= 1:
             if command.ExpectedPath is None:
-                self.__BasicConfig.LogPrint("Validating file '{0}' is in path: {1}".format(command.Name, result))
+                self.__Log.LogPrint("Validating file '{0}' is in path: {1}".format(command.Name, result))
             else:
-                self.__BasicConfig.LogPrint("Validating file '{0}' is in path at '{1}': {2}".format(command.Name, command.ExpectedPath, result))
-            if not value is None and self.__BasicConfig.Verbosity >= 2:
-                self.__BasicConfig.LogPrint("  '{0}'".format(value))
+                self.__Log.LogPrint("Validating file '{0}' is in path at '{1}': {2}".format(command.Name, command.ExpectedPath, result))
+            if not value is None and self.__Log.Verbosity >= 2:
+                self.__Log.LogPrint("  '{0}'".format(value))
         return result
 
     def __CheckVersion(self, minVersionList: List[int], foundVersionList: List[int]) -> bool:
@@ -287,44 +293,71 @@ class ValidationEngine(object):
                 return False
         return True
 
-    def __TryValidateCommandVersion(self, cmd: str, versionCommand: str, versionRegEx: str, minVersion: str) -> bool:
+
+    def __CheckOnErrorWarning(self, foundVersionList: List[int], versionRegEx: str,
+                              warning: XmlRecipeValidateCommandFindExecutableFileInPathAddOnErrorWarning) -> None:
+        startVersionList = Util.ParseVersionString(warning.StartVersion, maxValues=4)
+        if len(startVersionList) > len(foundVersionList):
+            self.__Log.DoPrintWarning("The regex '{0}' did not capture the enough version number elements to compare against the start version '{1}'".format(versionRegEx, warning.StartVersion))
+            return  # Its just a warning hint we can't display, so we log it and skip it for now
+        if self.__CheckVersion(startVersionList, foundVersionList):
+            # ok we passed the start version check for this warning hint
+            if warning.EndVersion is not None:
+                endVersionList = Util.ParseVersionString(warning.EndVersion, maxValues=4)
+                if len(endVersionList) > len(foundVersionList):
+                    self.__Log.DoPrintWarning("The regex '{0}' did not capture the enough version number elements to compare against the end version '{1}'".format(versionRegEx, warning.EndVersion))
+                    return # Its just a warning hint we can't display, so we log it and skip it for now
+                if self.__CheckVersion(endVersionList, foundVersionList):
+                    return
+            self.__ErrorHelpManager.AddOnErrorWarningHint(warning.Help)
+
+    def __CheckOnErrorWarnings(self, foundVersionList: List[int], versionRegEx: str,
+                               addOnErrorWarning: List[XmlRecipeValidateCommandFindExecutableFileInPathAddOnErrorWarning]) -> None:
+        for warning in addOnErrorWarning:
+            self.__CheckOnErrorWarning(foundVersionList, versionRegEx, warning)
+
+    def __TryValidateCommandVersion(self, cmd: str, versionCommand: str, versionRegEx: str, minVersion: Optional[str],
+                                    addOnErrorWarning: List[XmlRecipeValidateCommandFindExecutableFileInPathAddOnErrorWarning]) -> List[int]:
         output = ""
         try:
             runCmd = [cmd, versionCommand]
             with subprocess.Popen(runCmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, universal_newlines=True) as proc:
-                output = proc.stdout.read().strip()
-                proc.stdout.close()
+                output = proc.stdout.read().strip() if proc.stdout is not None else ""
+                if proc.stdout is not None:
+                    proc.stdout.close()
                 result = proc.wait()
                 if result != 0:
-                    self.__BasicConfig.LogPrintWarning("The command '{0}' failed with '{1}'".format(" ".join(runCmd), result))
-                    return False
+                    self.__Log.LogPrintWarning("The command '{0}' failed with '{1}'".format(" ".join(runCmd), result))
+                    return []
         except FileNotFoundError:
-                self.__BasicConfig.DoPrintWarning("The command '{0}' failed with 'file not found'.".format(" ".join(runCmd)))
-                return False
+            self.__Log.DoPrintWarning("The command '{0}' failed with 'file not found'.".format(" ".join(runCmd)))
+            return []
 
         match = re.search(versionRegEx, output)
         if match is None:
-            self.__BasicConfig.DoPrintWarning("The regex '{0}' did not capture the version".format(versionRegEx))
-            return False
+            self.__Log.DoPrintWarning("The regex '{0}' did not capture the version".format(versionRegEx))
+            return []
         if len(match.groups()) > 1:
-            self.__BasicConfig.DoPrintWarning("The regex '{0}' captured more than one group: {1}".format(versionRegEx, match.groups))
+            self.__Log.DoPrintWarning("The regex '{0}' captured more than one group: {1}".format(versionRegEx, match.groups))
         if len(match.groups()) != 1:
-            self.__BasicConfig.DoPrintWarning("The regex '{0}' did not capture a group with version information".format(versionRegEx))
+            self.__Log.DoPrintWarning("The regex '{0}' did not capture a group with version information".format(versionRegEx))
         matchResult = match.group(1)
         try:
             # time to parse the version string
             foundVersionList = Util.ParseVersionString(matchResult, maxValues=4)
-            minVersionList = Util.ParseVersionString(minVersion, maxValues=4)
-            if len(minVersionList) > len(foundVersionList):
-                self.__BasicConfig.DoPrintWarning("The regex '{0}' did not capture the enough version number elements to compare against the min version '{1}'".format(versionRegEx, minVersion))
-                return False
-            if not self.__CheckVersion(minVersionList, foundVersionList):
-                return False
-            self.__BasicConfig.LogPrint("  Found version {0} expected minVersion {1}".format(matchResult, minVersion))
+            if minVersion is not None:
+                minVersionList = Util.ParseVersionString(minVersion, maxValues=4)
+                if len(minVersionList) > len(foundVersionList):
+                    self.__Log.DoPrintWarning("The regex '{0}' did not capture the enough version number elements to compare against the min version '{1}'".format(versionRegEx, minVersion))
+                    return []
+                self.__Log.LogPrint("  Found version {0} expected minVersion {1}".format(matchResult, minVersion))
+                if not self.__CheckVersion(minVersionList, foundVersionList):
+                    return []
+            self.__CheckOnErrorWarnings(foundVersionList, versionRegEx, addOnErrorWarning)
+            return foundVersionList
         except Exception as ex:
-            self.__BasicConfig.DoPrintWarning("Failed to parse version string: {0}".format(str(ex)))
-            return False
-        return True
+            self.__Log.DoPrintWarning("Failed to parse version string: {0}".format(str(ex)))
+            return []
 
 
     def __ValidateFindExecutableFileInPath(self, rErrorRecordList: List[ErrorRecord],
@@ -345,51 +378,61 @@ class ValidationEngine(object):
 
             result, value = self.__TryFindFileInPath(newErrors, installationPath, platformFilename, command.ExpectedPath)
 
-            if result and value is not None and command.MinVersion is not None:
-                if command.VersionCommand is None or command.VersionRegEx is None or command.MinVersion is None:
+            foundVersion = [0]
+            if result and value is not None and command.VersionCommand is not None:
+                if command.VersionCommand is None or command.VersionRegEx is None:
                     raise Exception("Internal error")
-                result = self.__TryValidateCommandVersion(value, command.VersionCommand, command.VersionRegEx, command.MinVersion)
+                foundVersion = self.__TryValidateCommandVersion(value, command.VersionCommand, command.VersionRegEx, command.MinVersion, command.AddOnErrorWarning)
+                result = len(foundVersion) > 0
 
             # Cache information about what we discovered
             if result and value is not None:
-                exeRecord = PackageRecipeResultFoundExecutable(command.Name, currentCommandName, value)
+                exeRecord = PackageRecipeResultFoundExecutable(command.Name, currentCommandName, value, self.__ToVersion(foundVersion))
                 packageRecipeResult.AddFoundExecutable(exeRecord)
             elif len(alternatives) > 0:
                 alternatives = alternatives[1:]
                 retry = True
 
-        if self.__BasicConfig.Verbosity >= 1:
+        if self.__Log.Verbosity >= 1:
             # On failure we show the 'most' common name
             if result or (len(command.Alternatives) < 0):
                 if command.ExpectedPath is None:
-                    self.__BasicConfig.LogPrint("Validating executable file '{0}' is in path: {1}".format(currentCommandName, result))
+                    self.__Log.LogPrint("Validating executable file '{0}' is in path: {1}".format(currentCommandName, result))
                 else:
-                    self.__BasicConfig.LogPrint("Validating executable file '{0}' is in path at '{1}': {2}".format(currentCommandName, command.ExpectedPath, result))
+                    self.__Log.LogPrint("Validating executable file '{0}' is in path at '{1}': {2}".format(currentCommandName, command.ExpectedPath, result))
             else:
                 allAlternatives = [command.Name]
                 if command.Alternatives is not None:
                     allAlternatives += command.Alternatives
                 if command.ExpectedPath is None:
-                    self.__BasicConfig.LogPrint("Validating one of these executable files '{0}' is in path: {1}".format(", ".join(allAlternatives), result))
+                    self.__Log.LogPrint("Validating one of these executable files '{0}' is in path: {1}".format(", ".join(allAlternatives), result))
                 else:
-                    self.__BasicConfig.LogPrint("Validating one of these executable files '{0}' is in path at '{1}': {2}".format(", ".join(allAlternatives), command.ExpectedPath, result))
-            if not value is None and self.__BasicConfig.Verbosity >= 2:
-                self.__BasicConfig.LogPrint("  '{0}'".format(value))
+                    self.__Log.LogPrint("Validating one of these executable files '{0}' is in path at '{1}': {2}".format(", ".join(allAlternatives), command.ExpectedPath, result))
+            if not value is None and self.__Log.Verbosity >= 2:
+                self.__Log.LogPrint("  '{0}'".format(value))
 
         if not result:
             rErrorRecordList += newErrors
 
         return result
 
+    def __ToVersion(self, foundVersion: List[int]) -> Version:
+        if len(foundVersion) >= 4:
+            return Version(foundVersion[0], foundVersion[1], foundVersion[2], foundVersion[3])
+        if len(foundVersion) >= 3:
+            return Version(foundVersion[0], foundVersion[1], foundVersion[2])
+        if len(foundVersion) >= 2:
+            return Version(foundVersion[0], foundVersion[1])
+        return Version(foundVersion[0])
 
     def __ValidateAddHeaders(self, rErrorRecordList: List[ErrorRecord],
                              installationPath: Optional[str],
                              command: XmlRecipeValidateCommandAddHeaders) -> bool:
         result, value = self.__DoValidateAddHeaders(rErrorRecordList, installationPath, command)
-        if self.__BasicConfig.Verbosity >= 1:
-            self.__BasicConfig.LogPrint("Validating AddHeaders '{0}': {1}".format(command.Name, result))
-            if self.__BasicConfig.Verbosity >= 2:
-                self.__BasicConfig.LogPrint("  '{0}'".format(value))
+        if self.__Log.Verbosity >= 1:
+            self.__Log.LogPrint("Validating AddHeaders '{0}': {1}".format(command.Name, result))
+            if self.__Log.Verbosity >= 2:
+                self.__Log.LogPrint("  '{0}'".format(value))
         return result
 
 
@@ -397,17 +440,17 @@ class ValidationEngine(object):
                          installationPath: Optional[str],
                          command: XmlRecipeValidateCommandAddLib) -> bool:
         result, value = self.__DoValidateFile(rErrorRecordList, installationPath, command.Name, False)
-        if self.__BasicConfig.Verbosity >= 1:
-            self.__BasicConfig.LogPrint("Validating AddLib '{0}': {1}".format(command.Name, result))
-            if self.__BasicConfig.Verbosity >= 2:
-                self.__BasicConfig.LogPrint("  '{0}'".format(value))
+        if self.__Log.Verbosity >= 1:
+            self.__Log.LogPrint("Validating AddLib '{0}': {1}".format(command.Name, result))
+            if self.__Log.Verbosity >= 2:
+                self.__Log.LogPrint("  '{0}'".format(value))
         result2 = True
         if command.Name != command.DebugName:
             result2, value2 = self.__DoValidateFile(rErrorRecordList, installationPath, command.DebugName, False)
-            if self.__BasicConfig.Verbosity >= 1:
-                self.__BasicConfig.LogPrint("Validating AddLib (Debug) '{0}': {1}".format(command.DebugName, result2))
-                if self.__BasicConfig.Verbosity >= 2:
-                    self.__BasicConfig.LogPrint("  '{0}'".format(value2))
+            if self.__Log.Verbosity >= 1:
+                self.__Log.LogPrint("Validating AddLib (Debug) '{0}': {1}".format(command.DebugName, result2))
+                if self.__Log.Verbosity >= 2:
+                    self.__Log.LogPrint("  '{0}'".format(value2))
         return result and result2
 
 
@@ -415,30 +458,41 @@ class ValidationEngine(object):
                          installationPath: Optional[str],
                          command: XmlRecipeValidateCommandAddDLL) -> bool:
         result, value = self.__DoValidateFile(rErrorRecordList, installationPath, command.Name, False)
-        if self.__BasicConfig.Verbosity >= 1:
-            self.__BasicConfig.LogPrint("Validating AddDLL '{0}': {1}".format(command.Name, result))
-            if self.__BasicConfig.Verbosity >= 2:
-                self.__BasicConfig.LogPrint("  '{0}'".format(value))
+        if self.__Log.Verbosity >= 1:
+            self.__Log.LogPrint("Validating AddDLL '{0}': {1}".format(command.Name, result))
+            if self.__Log.Verbosity >= 2:
+                self.__Log.LogPrint("  '{0}'".format(value))
         result2 = True
         if command.Name != command.DebugName:
             result2, value2 = self.__DoValidateFile(rErrorRecordList, installationPath, command.DebugName, False)
-            if self.__BasicConfig.Verbosity >= 1:
-                self.__BasicConfig.LogPrint("Validating AddDLL (Debug) '{0}': {1}".format(command.DebugName, result2))
-                if self.__BasicConfig.Verbosity >= 2:
-                    self.__BasicConfig.LogPrint("  '{0}'".format(value2))
+            if self.__Log.Verbosity >= 1:
+                self.__Log.LogPrint("Validating AddDLL (Debug) '{0}': {1}".format(command.DebugName, result2))
+                if self.__Log.Verbosity >= 2:
+                    self.__Log.LogPrint("  '{0}'".format(value2))
         return result and result2
 
 
 
     def __ValidateAddTool(self, rErrorRecordList: List[ErrorRecord],
-                         installationPath: Optional[str],
-                         command: XmlRecipeValidateCommandAddTool) -> bool:
+                          installationPath: Optional[str],
+                          command: XmlRecipeValidateCommandAddTool,
+                          packageRecipeResult: PackageRecipeResult) -> bool:
         toolName = PlatformUtil.GetPlatformDependentExecuteableName(command.Name, PlatformUtil.DetectBuildPlatformType())
         result, value = self.__DoValidateFile(rErrorRecordList, installationPath, toolName, False)
-        if self.__BasicConfig.Verbosity >= 1:
-            self.__BasicConfig.LogPrint("Validating AddTool '{0}': {1}".format(command.Name, result))
-            if self.__BasicConfig.Verbosity >= 2:
-                self.__BasicConfig.LogPrint("  '{0}'".format(value))
+        if self.__Log.Verbosity >= 1:
+            self.__Log.LogPrint("Validating AddTool '{0}': {1}".format(command.Name, result))
+            if self.__Log.Verbosity >= 2:
+                self.__Log.LogPrint("  '{0}'".format(value))
+        if result and value is not None:
+            foundVersion = [0]
+            if result and value is not None and command.VersionCommand is not None:
+                if command.VersionCommand is None or command.VersionRegEx is None:
+                    raise Exception("Internal error")
+                foundVersion = self.__TryValidateCommandVersion(value, command.VersionCommand, command.VersionRegEx, command.MinVersion, [])
+                result = len(foundVersion) > 0
+
+            exeRecord = PackageRecipeResultFoundExecutable(command.Name, command.Name, value, self.__ToVersion(foundVersion))
+            packageRecipeResult.AddFoundExecutable(exeRecord)
         return result
 
 
@@ -449,8 +503,8 @@ class ValidationEngine(object):
             rErrorRecordList.append(ErrorRecord(ErrorClassification.Environment, "Environment variable '{0}' is not defined, please define it as required.".format(command.Name)))
             return False, value
 
-        if self.__BasicConfig.Verbosity >= 4:
-            self.__BasicConfig.LogPrint("ValidateEnvironmentVariable: '{0}'='{1}'".format(command.Name, value))
+        if self.__Log.Verbosity >= 4:
+            self.__Log.LogPrint("ValidateEnvironmentVariable: '{0}'='{1}'".format(command.Name, value))
 
         if command.Method == BuildRecipeValidateMethod.IsDirectory:
             if not IOUtil.IsDirectory(value):
@@ -479,15 +533,15 @@ class ValidationEngine(object):
     def __DoValidatePath(self, rErrorRecordList: List[ErrorRecord],
                          installationPath: Optional[str],
                          command: XmlRecipeValidateCommandPath) -> Tuple[bool, Optional[str]]:
-        if self.__BasicConfig.Verbosity >= 4:
-            self.__BasicConfig.LogPrint("ValidatePath '{0}'".format(command.Name))
+        if self.__Log.Verbosity >= 4:
+            self.__Log.LogPrint("ValidatePath '{0}'".format(command.Name))
 
         result, path = self.__TryResolvePath(rErrorRecordList, installationPath, command.Name)
         if not result or path is None:
             return False, path
 
-        if self.__BasicConfig.Verbosity >= 4:
-            self.__BasicConfig.LogPrint("Resolving to '{0}'".format(path))
+        if self.__Log.Verbosity >= 4:
+            self.__Log.LogPrint("Resolving to '{0}'".format(path))
 
         if command.Method == BuildRecipeValidateMethod.IsDirectory:
             if not IOUtil.IsDirectory(path):
@@ -511,16 +565,16 @@ class ValidationEngine(object):
                             installationPath: Optional[str],
                             commandFileName: str,
                             commandExpectedPath: Optional[str]) -> Tuple[bool, Optional[str]]:
-        if self.__BasicConfig.Verbosity >= 4:
-            self.__BasicConfig.LogPrint("FindFileInPath: '{0}'".format(commandFileName))
+        if self.__Log.Verbosity >= 4:
+            self.__Log.LogPrint("FindFileInPath: '{0}'".format(commandFileName))
 
         path = IOUtil.TryFindFileInPath(commandFileName)
         if path is None:
             rErrorRecordList.append(ErrorRecord(ErrorClassification.Environment, "File '{0}' could not be found in path.".format(commandFileName)))
             return False, path
 
-        if self.__BasicConfig.Verbosity >= 4:
-            self.__BasicConfig.LogPrint("Found at '{0}'".format(path))
+        if self.__Log.Verbosity >= 4:
+            self.__Log.LogPrint("Found at '{0}'".format(path))
 
         path = IOUtil.NormalizePath(path)
 
@@ -541,15 +595,15 @@ class ValidationEngine(object):
     def __DoValidateAddHeaders(self, rErrorRecordList: List[ErrorRecord],
                                installationPath: Optional[str],
                                command: XmlRecipeValidateCommandAddHeaders) -> Tuple[bool, Optional[str]]:
-        if self.__BasicConfig.Verbosity >= 4:
-            self.__BasicConfig.LogPrint("ValidateAddHeaders '{0}'".format(command.Name))
+        if self.__Log.Verbosity >= 4:
+            self.__Log.LogPrint("ValidateAddHeaders '{0}'".format(command.Name))
 
         result, path = self.__TryResolvePath(rErrorRecordList, installationPath, command.Name, False)
         if not result or path is None:
             return False, path
 
-        if self.__BasicConfig.Verbosity >= 4:
-            self.__BasicConfig.LogPrint("Resolving to '{0}'".format(path))
+        if self.__Log.Verbosity >= 4:
+            self.__Log.LogPrint("Resolving to '{0}'".format(path))
 
         if not IOUtil.IsDirectory(path):
             rErrorRecordList.append(ErrorRecord(ErrorClassification.Critical, "Path '{0}' resolved to '{1}' which is not a directory.".format(command.Name, path)))
@@ -565,8 +619,8 @@ class ValidationEngine(object):
         if not result or path is None:
             return False, path
 
-        if self.__BasicConfig.Verbosity >= 4:
-            self.__BasicConfig.LogPrint("Resolving to '{0}'".format(path))
+        if self.__Log.Verbosity >= 4:
+            self.__Log.LogPrint("Resolving to '{0}'".format(path))
 
         if not IOUtil.IsFile(path):
             fileHelp = self.__GetFailedFileCheckExtraHelpString(path)
@@ -594,14 +648,15 @@ class ValidationEngine(object):
                 rErrorRecordList.append(ErrorRecord(ErrorClassification.Environment, "Path '{0}' tried to use a undefined install path. Is the recipe missing a Pipeline section, ExternalInstallDirectory or is the supplied path missing a environment variable to qualify it?".format(sourcePath)))
                 return False, None
             return True, IOUtil.Join(installationPath, sourcePath)
+        restPath = restPath if restPath is not None else ""
 
         value = os.environ.get(environmentVariableName)
-        if not value:
+        if value is None:
             rErrorRecordList.append(ErrorRecord(ErrorClassification.Environment, "Path '{0}' contained environment variable '{1}' which is not defined.".format(sourcePath, environmentVariableName)))
             return False, None
         path = IOUtil.Join(value, restPath)
-        if self.__BasicConfig.Verbosity >= 4:
-            self.__BasicConfig.LogPrint("Path: '{0}' using environment variable '{1}'='{2}' resolving to '{3}'".format(sourcePath, environmentVariableName, value, path))
+        if self.__Log.Verbosity >= 4:
+            self.__Log.LogPrint("Path: '{0}' using environment variable '{1}'='{2}' resolving to '{3}'".format(sourcePath, environmentVariableName, value, path))
         return True, path
 
 

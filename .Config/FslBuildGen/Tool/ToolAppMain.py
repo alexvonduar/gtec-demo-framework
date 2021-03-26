@@ -32,30 +32,33 @@
 #****************************************************************************************************************************************************
 
 from typing import Any
-from typing import Callable
+#from typing import Callable
 from typing import List
 from typing import Optional
-from typing import Tuple
+#from typing import Tuple
 import argparse
-import os
+#import os
 import sys
 import time
 from datetime import timedelta
 from FslBuildGen import IOUtil
 from FslBuildGen import ParseUtil
-from FslBuildGen.Generator import PluginConfig
-from FslBuildGen import PluginSharedValues
-from FslBuildGen import Util
+#from FslBuildGen import PluginSharedValues
+#from FslBuildGen import Util
 from FslBuildGen.BasicConfig import BasicConfig
 from FslBuildGen.Config import BaseConfig
 from FslBuildGen.DataTypes import BuildThreads
 from FslBuildGen.DataTypes import GeneratorType
 from FslBuildGen.DataTypes import GeneratorNameString
-from FslBuildGen.DataTypes import VisualStudioVersion
+#from FslBuildGen.DataTypes import VisualStudioVersion
+from FslBuildGen.ErrorHelpManager import ErrorHelpManager
 from FslBuildGen.Exceptions import AggregateException
 from FslBuildGen.Exceptions import ExitException
 from FslBuildGen.Exceptions import GroupedException
+from FslBuildGen.Generator import PluginConfig
+from FslBuildGen.Generator.PluginConfigContext import PluginConfigContext
 from FslBuildGen.Log import Log
+from FslBuildGen.Version import Version
 from FslBuildGen.PlatformUtil import PlatformUtil
 from FslBuildGen.ToolConfig import ToolConfig
 from FslBuildGen.Tool.AToolAppFlowFactory import AToolAppFlowFactory
@@ -67,8 +70,7 @@ from FslBuildGen.Tool.ToolCommonArgConfig import ToolCommonArgConfig
 from FslBuildGen.Xml.Project.XmlProjectRootConfigFile import XmlProjectRootConfigFile
 
 
-CurrentVersionString = "3.0.7"
-CurrentBuildString = "9"
+CurrentVersion = Version(3, 2, 0, 8)
 
 
 def __AddDefaultOptions(parser: argparse.ArgumentParser, allowStandaloneMode: bool) -> None:
@@ -106,7 +108,7 @@ def __EarlyArgumentParser(allowStandaloneMode: bool) -> Optional[LowLevelToolCon
             print("Using custom path from --input '{0}'".format(currentDir))
 
         if args.version:
-            print("V{0} Build {1}".format(CurrentVersionString, CurrentBuildString))
+            print("V{0}".format(CurrentVersion))
         return LowLevelToolConfig(verbosityLevel, debugEnabled, allowDevelopmentPlugins, profilerEnabled, standaloneEnabled, currentDir)
     except (Exception) as ex:
         print("ERROR: {0}".format(str(ex)))
@@ -214,16 +216,20 @@ def __CreateToolAppConfig(args: Any, defaultPlatform: str, toolCommonArgConfig: 
         toolAppConfig.CMakeInstallPrefix = None if args.CMakeInstallPrefix is None else IOUtil.NormalizePath(args.CMakeInstallPrefix)
     if hasattr(args, 'CMakeGeneratorName'):
         toolAppConfig.CMakeGeneratorName = args.CMakeGeneratorName
+    if hasattr(args, 'CMakeConfigArgs'):
+        toolAppConfig.CMakeConfigArgs = args.CMakeConfigArgs
+    if hasattr(args, 'CMakeConfigGlobalArgs'):
+        toolAppConfig.CMakeConfigGlobalArgs = args.CMakeConfigGlobalArgs
+    if hasattr(args, 'CMakeAllowFindPackage'):
+        toolAppConfig.CMakeAllowFindPackage = None if args.CMakeAllowFindPackage is None else ParseUtil.ParseBool(args.CMakeAllowFindPackage)
 
     return toolAppConfig
 
 
-def __PrepareGeneratorPlugins(lowLevelToolConfig: LowLevelToolConfig,
+def __PrepareGeneratorPlugins(pluginConfigContext: PluginConfigContext, lowLevelToolConfig: LowLevelToolConfig,
                               toolCommonArgConfig: ToolCommonArgConfig) -> List[str]:
-    generatorPlugins = PluginConfig.GetGeneratorPlugins(lowLevelToolConfig.AllowDevelopmentPlugins)
+    generatorPlugins = pluginConfigContext.GetGeneratorPlugins()
     generatorIds = [entry.PlatformId for entry in generatorPlugins]
-    if toolCommonArgConfig.AllowPlaformAll:
-        generatorIds.append(PluginSharedValues.PLATFORM_ID_ALL)
     return generatorIds
 
 
@@ -255,9 +261,12 @@ def __CreateParser(toolCommonArgConfig: ToolCommonArgConfig, allowStandaloneMode
     if toolCommonArgConfig.AddGeneratorSelection:
         parser.add_argument('-g', '--Generator', default=GeneratorNameString.Default,
                             help='Select the generator to use (experimental feature): {0}'.format(", ".join(GeneratorNameString.AllStrings())))
-        parser.add_argument('--CMakeBuildDir', default=DefaultValue.CMakeBuildDir, help='Select the build dir to use for cmake (experimental feature and work in progress argument name). Only used by the cmake generator.')
-        parser.add_argument('--CMakeInstallPrefix', default=DefaultValue.CMakeInstallPrefix, help='Select the install prefix for cmake (experimental feature and work in progress argument name). Only used by the cmake generator.')
-        parser.add_argument('--CMakeGeneratorName', default=DefaultValue.CMakeGeneratorName, help='Select the cmake generator name (experimental feature and work in progress argument name).  Only used by the cmake generator.')
+        parser.add_argument('--CMakeGeneratorName', default=DefaultValue.CMakeGeneratorName, help='Select the cmake generator name.  Only used by the cmake generator. (experimental feature and work in progress argument name)')
+        parser.add_argument('--CMakeBuildDir', default=DefaultValue.CMakeBuildDir, help='Select the build dir to use for cmake. Only used by the cmake generator. (experimental feature and work in progress argument name)')
+        parser.add_argument('--CMakeConfigArgs', default=DefaultValue.CMakeConfigArgs, help='Add additional cmake config command line arguments to the apps (not recipes).  Only used by the cmake generator. (experimental feature and work in progress argument name)')
+        parser.add_argument('--CMakeConfigGlobalArgs', default=DefaultValue.CMakeConfigGlobalArgs, help='Add additional cmake config command line arguments to all cmake config commands.  Only used by the cmake generator. (experimental feature and work in progress argument name)')
+        parser.add_argument('--CMakeInstallPrefix', default=DefaultValue.CMakeInstallPrefix, help='Select the install prefix for cmake. Only used by the cmake generator. (experimental feature and work in progress argument name)')
+        parser.add_argument('--CMakeAllowFindPackage', default=DefaultValue.CMakeAllowFindPackage, help='Enable/disable the cmake find_package requests. (experimental feature and work in progress argument name)')
 
     if toolCommonArgConfig.AddBuildVariants:
         parser.add_argument('--Variants', help='Configure the variants you wish to use for the build [WindowSystem=X11]')
@@ -266,12 +275,20 @@ def __CreateParser(toolCommonArgConfig: ToolCommonArgConfig, allowStandaloneMode
                             help='From the current package location we scan all sub directories for packages and process them')
     return parser
 
+def __OnErrorInfo(buildTiming: Optional[BuildTimer], errorHelpManager: ErrorHelpManager) -> None:
+    if buildTiming is not None:
+        PrintBuildTiming(buildTiming)
+    if len(errorHelpManager.OnErrorWarningHints) > 0:
+        print("*** The following hints might help solve the issue but they also might be completely unrelated ***")
+        for entry in errorHelpManager.OnErrorWarningHints:
+            print("- HINT: {0}".format(entry))
 
 def __RunStandalone(appFlowFactory: AToolAppFlowFactory, strToolAppTitle: str,
                     toolCommonArgConfig: ToolCommonArgConfig, lowLevelToolConfig: LowLevelToolConfig) -> None:
     log = Log(strToolAppTitle, lowLevelToolConfig.VerbosityLevel, showAppTitleIfVerbose=True)
 
-    generatorIds = __PrepareGeneratorPlugins(lowLevelToolConfig, toolCommonArgConfig)
+    pluginConfigContext = PluginConfig.InitPluginConfigContext(log, CurrentVersion, lowLevelToolConfig.AllowDevelopmentPlugins)
+    generatorIds = __PrepareGeneratorPlugins(pluginConfigContext, lowLevelToolConfig, toolCommonArgConfig)
 
     ### Do the actual command line parsing
     parser = __CreateParser(toolCommonArgConfig, True)
@@ -279,6 +296,7 @@ def __RunStandalone(appFlowFactory: AToolAppFlowFactory, strToolAppTitle: str,
         parser.add_argument('-p', '--platform', required=True, help='Select build platform: {0}'.format(", ".join(generatorIds)))
 
     buildTiming = None
+    errorHelpManager = ErrorHelpManager()
     try:
         userTag = appFlowFactory.CreateStandaloneUserTag()
         appFlowFactory.AddCustomStandaloneArguments(parser, userTag)
@@ -293,7 +311,7 @@ def __RunStandalone(appFlowFactory: AToolAppFlowFactory, strToolAppTitle: str,
         currentDir = lowLevelToolConfig.CurrentDir
 
         toolAppConfig = __CreateToolAppConfig(args, args.platform, toolCommonArgConfig, 0)
-        toolAppContext = ToolAppContext(log, lowLevelToolConfig, toolAppConfig)
+        toolAppContext = ToolAppContext(log, errorHelpManager, lowLevelToolConfig, toolAppConfig, pluginConfigContext)
         toolAppFlow = appFlowFactory.Create(toolAppContext)
 
         toolAppFlow.ProcessFromStandaloneCommandLine(args, currentDir, userTag)
@@ -301,8 +319,7 @@ def __RunStandalone(appFlowFactory: AToolAppFlowFactory, strToolAppTitle: str,
         if buildTiming:
             PrintBuildTiming(buildTiming)
     except GroupedException as ex:
-        if buildTiming:
-            PrintBuildTiming(buildTiming)
+        __OnErrorInfo(buildTiming, errorHelpManager)
         for entry in ex.ExceptionList:
             print("ERROR: {0}".format(entry))
         if lowLevelToolConfig.DebugEnabled:
@@ -312,8 +329,7 @@ def __RunStandalone(appFlowFactory: AToolAppFlowFactory, strToolAppTitle: str,
                 sys.exit(entry.ExitCode)
         sys.exit(1)
     except AggregateException as ex:
-        if buildTiming:
-            PrintBuildTiming(buildTiming)
+        __OnErrorInfo(buildTiming, errorHelpManager)
         for entry in ex.ExceptionList:
             print("ERROR: {0}".format(entry))
         if lowLevelToolConfig.DebugEnabled:
@@ -325,10 +341,10 @@ def __RunStandalone(appFlowFactory: AToolAppFlowFactory, strToolAppTitle: str,
                 sys.exit(entry.ExitCode)
         sys.exit(1)
     except ExitException as ex:
+        __OnErrorInfo(buildTiming, errorHelpManager)
         sys.exit(ex.ExitCode)
     except Exception as ex:
-        if buildTiming:
-            PrintBuildTiming(buildTiming)
+        __OnErrorInfo(buildTiming, errorHelpManager)
         print("ERROR: {0}".format(ex))
         if lowLevelToolConfig.DebugEnabled:
             raise
@@ -346,7 +362,8 @@ def __Run(appFlowFactory: AToolAppFlowFactory, strToolAppTitle: str,
 
     log = Log(strToolAppTitle, lowLevelToolConfig.VerbosityLevel, showAppTitleIfVerbose=True)
 
-    generatorIds = __PrepareGeneratorPlugins(lowLevelToolConfig, toolCommonArgConfig)
+    pluginConfigContext = PluginConfig.InitPluginConfigContext(log, CurrentVersion, lowLevelToolConfig.AllowDevelopmentPlugins)
+    generatorIds = __PrepareGeneratorPlugins(pluginConfigContext, lowLevelToolConfig, toolCommonArgConfig)
 
     try:
         defaultPlatform = DetectBuildPlatform()
@@ -376,8 +393,9 @@ def __Run(appFlowFactory: AToolAppFlowFactory, strToolAppTitle: str,
         toolConfigFile = projectRootConfig.ToolConfigFile
 
         # Get the path to the toolconfig file if necessary and load the tool config file
+        buildPlatformType = PlatformUtil.DetectBuildPlatformType()
         toolConfigPath = __GetToolConfigPath(toolConfigFile)
-        toolConfig = ToolConfig(basicConfig, toolConfigPath, projectRootConfig)
+        toolConfig = ToolConfig(buildPlatformType, CurrentVersion, basicConfig, toolConfigPath, projectRootConfig)
         baseConfig = BaseConfig(log, toolConfig)
     except (Exception) as ex:
         print("ERROR: {0}".format(ex))
@@ -386,6 +404,7 @@ def __Run(appFlowFactory: AToolAppFlowFactory, strToolAppTitle: str,
         sys.exit(1)
 
     buildTiming = None
+    errorHelpManager = ErrorHelpManager()
     try:
         defaultVSVersion = toolConfig.GetVisualStudioDefaultVersion()
         #if toolCommonArgConfig.AllowVSVersion:
@@ -397,7 +416,7 @@ def __Run(appFlowFactory: AToolAppFlowFactory, strToolAppTitle: str,
         args = parser.parse_args()
 
         #if toolCommonArgConfig.AllowVSVersion:
-        PluginConfig.SetVSVersion(args.VSVersion)
+        pluginConfigContext.SetVSVersion(args.VSVersion)
 
 
         #if toolCommonArgConfig.AddPlatformArg and args.platform.lower() != PluginSharedValues.PLATFORM_ID_ALL:
@@ -416,15 +435,14 @@ def __Run(appFlowFactory: AToolAppFlowFactory, strToolAppTitle: str,
                     args.Recipes = "[{0}]".format(tmpResult)
 
         toolAppConfig = __CreateToolAppConfig(args, defaultPlatform, toolCommonArgConfig, defaultVSVersion)
-        toolAppContext = ToolAppContext(log, lowLevelToolConfig, toolAppConfig)
+        toolAppContext = ToolAppContext(log, errorHelpManager, lowLevelToolConfig, toolAppConfig, pluginConfigContext)
         toolAppFlow = appFlowFactory.Create(toolAppContext)
         toolAppFlow.ProcessFromCommandLine(args, currentDir, toolConfig, userTag)
 
         if buildTiming:
             PrintBuildTiming(buildTiming)
     except GroupedException as ex:
-        if buildTiming:
-            PrintBuildTiming(buildTiming)
+        __OnErrorInfo(buildTiming, errorHelpManager)
         for entry in ex.ExceptionList:
             print("ERROR: {0}".format(entry))
         if lowLevelToolConfig.DebugEnabled:
@@ -434,8 +452,7 @@ def __Run(appFlowFactory: AToolAppFlowFactory, strToolAppTitle: str,
                 sys.exit(entry.ExitCode)
         sys.exit(1)
     except AggregateException as ex:
-        if buildTiming:
-            PrintBuildTiming(buildTiming)
+        __OnErrorInfo(buildTiming, errorHelpManager)
         for entry in ex.ExceptionList:
             print("ERROR: {0}".format(entry))
         if lowLevelToolConfig.DebugEnabled:
@@ -447,10 +464,10 @@ def __Run(appFlowFactory: AToolAppFlowFactory, strToolAppTitle: str,
                 sys.exit(entry.ExitCode)
         sys.exit(1)
     except ExitException as ex:
+        __OnErrorInfo(buildTiming, errorHelpManager)
         sys.exit(ex.ExitCode)
     except Exception as ex:
-        if buildTiming:
-            PrintBuildTiming(buildTiming)
+        __OnErrorInfo(buildTiming, errorHelpManager)
         print("ERROR: {0}".format(ex))
         if lowLevelToolConfig.DebugEnabled:
             raise
@@ -459,7 +476,7 @@ def __Run(appFlowFactory: AToolAppFlowFactory, strToolAppTitle: str,
 
 
 def Run(appFlowFactory: AToolAppFlowFactory, allowStandaloneMode: bool = False) -> None:
-    strToolAppTitle = "{0} V{1} Build {2}".format(appFlowFactory.GetTitle(), CurrentVersionString, CurrentBuildString)
+    strToolAppTitle = "{0} V{1}".format(appFlowFactory.GetTitle(), CurrentVersion)
     appShortDesc = appFlowFactory.GetShortDesc()
     if appShortDesc is not None:
         strToolAppTitle = "{0} - {1}".format(strToolAppTitle, appShortDesc)
@@ -495,4 +512,3 @@ def Run(appFlowFactory: AToolAppFlowFactory, allowStandaloneMode: bool = False) 
             p.print_stats(100)
         except ImportError:
             raise Exception("Standard python package cProfile or pstats is not available. So profiling is not available.")
-

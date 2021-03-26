@@ -32,7 +32,7 @@
 #include <FslUtil/OpenCL1_2/ContextEx.hpp>
 #include <FslUtil/OpenCL1_2/OpenCLHelper.hpp>
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <RapidOpenCL1/Check.hpp>
 #include <RapidOpenCL1/Exceptions.hpp>
 #include <cassert>
@@ -80,6 +80,7 @@ namespace Fsl
     }
 
 
+    // NOLINTNEXTLINE(misc-misplaced-const)
     ContextEx::ContextEx(const cl_platform_id platformId, const cl_context context)
       : ContextEx()
     {
@@ -87,6 +88,7 @@ namespace Fsl
     }
 
 
+    // NOLINTNEXTLINE(misc-misplaced-const)
     ContextEx::ContextEx(const cl_device_type deviceType, cl_device_id* pDeviceId, const bool allowFallback)
       : ContextEx()
     {
@@ -100,6 +102,7 @@ namespace Fsl
     }
 
 
+    // NOLINTNEXTLINE(misc-misplaced-const)
     void ContextEx::Reset(const cl_device_type deviceType, cl_device_id* pDeviceId, const bool allowFallback)
     {
       if (IsValid())
@@ -125,7 +128,7 @@ namespace Fsl
 
       if (allowFallback && deviceType != CL_DEVICE_TYPE_ALL)
       {
-        FSLLOG("Trying to locate a device using CL_DEVICE_TYPE_ALL");
+        FSLLOG3_INFO("Trying to locate a device using CL_DEVICE_TYPE_ALL");
         for (auto itr = platformIds.begin(); itr != platformIds.end(); ++itr)
         {
           const auto deviceIds = OpenCLHelper::GetDeviceIDs(*itr, CL_DEVICE_TYPE_ALL);
@@ -140,6 +143,7 @@ namespace Fsl
       throw NotSupportedException("No device found");
     }
 
+    // NOLINTNEXTLINE(misc-misplaced-const)
     void ContextEx::SelectDevice(cl_platform_id platformId, const std::vector<cl_device_id>& deviceIds, cl_device_id* pDeviceId)
     {
       // FIX: for now just select the first device

@@ -29,13 +29,13 @@
  *
  ****************************************************************************************************************************************************/
 
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslUtil/OpenGLES3/Exceptions.hpp>
 #include <FslUtil/OpenGLES3/GLCheck.hpp>
 #include <FslUtil/OpenGLES3_1/GLShaderProgram.hpp>
-
+#include <array>
 #include <algorithm>
-#include <iostream>
+#include <type_traits>
 #include <vector>
 
 namespace Fsl
@@ -46,9 +46,10 @@ namespace Fsl
     {
       void DumpDebugInformation(const GLuint hProgram, const std::string& strShaderCode)
       {
-        FSLLOG("*** Source start ***\n" << strShaderCode << "\n*** Source end ***\n\n");
+        FSLLOG3_INFO("*** Source start ***\n{}\n*** Source end ***\n\n", strShaderCode);
 
-        GLint errorBufSize, errorLength;
+        GLint errorBufSize = 0;
+        GLint errorLength = 0;
         glGetProgramiv(hProgram, GL_INFO_LOG_LENGTH, &errorBufSize);
 
         std::vector<char> errorLog(std::max(errorBufSize, 1));
@@ -58,8 +59,10 @@ namespace Fsl
 
         // GetShaderStageName(target)
 
-        FSLLOG("*** GLShaderProgram: Error log start ***\n"
-               << &errorLog[0] << "\n*** GLShaderProgram: Error Log End ***\n(If the log is empty try compiling with GLShader)\n\n");
+        FSLLOG3_INFO(
+          "*** GLShaderProgram: Error log start ***\n{}\n*** GLShaderProgram: Error Log End ***\n(If the log is empty try compiling with "
+          "GLShader)\n\n",
+          &errorLog[0]);
       }
     }
 
@@ -100,10 +103,11 @@ namespace Fsl
       Reset();
       m_shaderType = shaderType;
 
-      const char* shaderCode[1] = {strShaderCode.c_str()};
+      std::array<const char*, 1> shaderCode = {strShaderCode.c_str()};
 
       // Create the new shader of the given type
-      m_handle = glCreateShaderProgramv(shaderType, 1, shaderCode);
+      assert(shaderCode.size() <= std::make_unsigned<GLsizei>::type(std::numeric_limits<GLsizei>::max()));
+      m_handle = glCreateShaderProgramv(shaderType, static_cast<GLsizei>(shaderCode.size()), shaderCode.data());
       shaderCode[0] = nullptr;
       GLenum glError = glGetError();
       if (m_handle == 0 || glError != GL_NO_ERROR)

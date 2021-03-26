@@ -32,8 +32,9 @@
  ****************************************************************************************************************************************************/
 
 #include <FslBase/BasicTypes.hpp>
-#include <FslBase/Math/Point2.hpp>
-#include <string>
+#include <FslBase/Math/Pixel/PxSize2D.hpp>
+#include <FslBase/String/StringViewLite.hpp>
+#include <FslBase/Math/Pixel/PxExtent2D.hpp>
 
 namespace Fsl
 {
@@ -47,7 +48,7 @@ namespace Fsl
     virtual ~INativeGraphicsBasic2D() = default;
 
     //! @brief Update the current resolution (can not be called during a begin/end block)
-    virtual void SetScreenResolution(const Point2& currentResolution) = 0;
+    virtual void SetScreenExtent(const PxExtent2D& currentExtentPx) = 0;
 
     //! @brief Begin the draw sequence (all draw calls must occur inside a begin/end block. Begin end blocks can not be nested!
     virtual void Begin() = 0;
@@ -62,10 +63,10 @@ namespace Fsl
     //! @param position the position to draw the string at
     //! @param the color to use for rendering
     //! @note This is a minimal string rendering routine
-    virtual void DrawString(const char* const characters, const uint32_t length, const Vector2& dstPosition) = 0;
+    virtual void DrawString(const StringViewLite& strView, const Vector2& dstPosition) = 0;
 
     //! @brief Get the size of one monospaced font character
-    virtual Point2 FontSize() const = 0;
+    virtual PxSize2D FontSize() const = 0;
   };
 }
 

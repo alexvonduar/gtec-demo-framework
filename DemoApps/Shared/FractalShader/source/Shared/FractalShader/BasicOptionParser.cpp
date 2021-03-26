@@ -31,7 +31,7 @@
 
 #include <Shared/FractalShader/BasicOptionParser.hpp>
 #include <FslBase/BasicTypes.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/Math/MathHelper.hpp>
 #include <FslBase/String/StringParseUtil.hpp>
 #include <FslBase/Getopt/OptionBaseValues.hpp>
@@ -79,26 +79,26 @@ namespace Fsl
   }
 
 
-  OptionParseResult::Enum BasicOptionParser::OnParse(const int32_t cmdId, const char* const pszOptArg)
+  OptionParseResult BasicOptionParser::OnParse(const int32_t cmdId, const StringViewLite& strOptArg)
   {
-    int intValue;
+    int intValue = 0;
 
     switch (cmdId)
     {
     case CommandId::Quality:
-      if (strcmp(pszOptArg, "low") == 0)
+      if (strOptArg == "low")
       {
         m_config.SetQuality(Quality::Low);
       }
-      else if (strcmp(pszOptArg, "medium") == 0)
+      else if (strOptArg == "medium")
       {
         m_config.SetQuality(Quality::Medium);
       }
-      else if (strcmp(pszOptArg, "high") == 0)
+      else if (strOptArg == "high")
       {
         m_config.SetQuality(Quality::High);
       }
-      else if (strcmp(pszOptArg, "vhigh") == 0)
+      else if (strOptArg == "vhigh")
       {
         m_config.SetQuality(Quality::VeryHigh);
       }
@@ -108,7 +108,7 @@ namespace Fsl
       }
       return OptionParseResult::Parsed;
     case CommandId::RenderMode:
-      if (StringParseUtil::Parse(intValue, pszOptArg) <= 0)
+      if (StringParseUtil::Parse(intValue, strOptArg) <= 0)
       {
         return OptionParseResult::Failed;
       }
@@ -116,7 +116,7 @@ namespace Fsl
       m_config.SetRenderMode(static_cast<RenderMode>(intValue));
       return OptionParseResult::Parsed;
     case CommandId::Iterations:
-      if (StringParseUtil::Parse(intValue, pszOptArg) <= 0)
+      if (StringParseUtil::Parse(intValue, strOptArg) <= 0)
       {
         return OptionParseResult::Failed;
       }
@@ -159,8 +159,8 @@ namespace Fsl
       }
       if (!m_modified.IsFlagged(ModifiedFlags::Iterations))
       {
-        m_config.SetIterationsJ(20);
-        m_config.SetIterationsM(35);
+        m_config.SetIterationsJ(DefaultValues::JULIA_DEFAULT_ITERATIONS);
+        m_config.SetIterationsM(DefaultValues::MANDELBROT_DEFAULT_ITERATIONS);
       }
       break;
     case Quality::High:

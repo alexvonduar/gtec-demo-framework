@@ -37,13 +37,13 @@
 #include <FslNativeWindow/Base/NativeWindowSetup.hpp>
 #include <FslNativeWindow/Base/NativeWindowSystemSetup.hpp>
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/Math/Point2.hpp>
 #include <FslBase/Math/Vector2.hpp>
 #include <iostream>
 
 #if 0
-#define LOCAL_LOG(X) FSLLOG("PlatformNativeWindow QNX: " << X)
+#define LOCAL_LOG(X) FSLLOG3_INFO("PlatformNativeWindow QNX: {}", (X))
 #else
 #define LOCAL_LOG(X) \
   {                  \
@@ -123,7 +123,7 @@ namespace Fsl
 
   PlatformNativeWindowQNX::PlatformNativeWindowQNX(const NativeWindowSetup& nativeWindowSetup, const PlatformNativeWindowParams& platformWindowParams,
                                                    const PlatformNativeWindowAllocationParams* const pPlatformCustomWindowAllocationParams)
-    : PlatformNativeWindow(nativeWindowSetup, platformWindowParams, pPlatformCustomWindowAllocationParams)
+    : PlatformNativeWindow(nativeWindowSetup, platformWindowParams, pPlatformCustomWindowAllocationParams, NativeWindowCapabilityFlags::NoFlags)
   {
     LOCAL_LOG("QNX: PlatformNativeWindowSystemQNX start");
 
@@ -162,7 +162,7 @@ namespace Fsl
 
     if (SelectDisplay(screen_ctx, (screen_window_t)m_platformWindow, nativeWindowSetup.GetConfig().GetDisplayId()))
     {
-      FSLLOG_ERROR("SelectDisplay  failed!");
+      FSLLOG3_ERROR("SelectDisplay failed!");
     }
 
     if (screen_create_window_buffers(m_platformWindow, 2))
@@ -172,7 +172,7 @@ namespace Fsl
 
     if (nativeWindowConfig.GetWindowMode() != WindowMode::Window)
     {
-      FSLLOG("WARNING: Window Size/Position not defined, setting them to MAX Display Resolution");
+      FSLLOG3_INFO("Window Size/Position not defined, setting them to MAX Display Resolution");
       position[0] = 0;
       position[1] = 0;
       // default window size is fullscreen, so no screen_set_window_property_iv call is required
@@ -221,34 +221,18 @@ namespace Fsl
   }
 
 
-  bool PlatformNativeWindowQNX::TryGetDPI(Vector2& rDPI) const
+  bool PlatformNativeWindowQNX::TryGetNativeSize(PxPoint2& rSize) const
   {
     {    // Remove this once its implemented
       static bool warnedNotImplementedOnce = false;
       if (!warnedNotImplementedOnce)
       {
-        FSLLOG("PlatformNativeWindowQNX: TryGetDPI is not implemented on this backend.");
+        FSLLOG3_INFO("PlatformNativeWindowQNX: TryGetNativeSize is not implemented on this backend.");
         warnedNotImplementedOnce = true;
       }
     }
 
-    rDPI = Vector2();
-    return false;
-  }
-
-
-  bool PlatformNativeWindowQNX::TryGetSize(Point2& rSize) const
-  {
-    {    // Remove this once its implemented
-      static bool warnedNotImplementedOnce = false;
-      if (!warnedNotImplementedOnce)
-      {
-        FSLLOG("PlatformNativeWindowQNX: TryGetSize is not implemented on this backend.");
-        warnedNotImplementedOnce = true;
-      }
-    }
-
-    rSize = Point2();
+    rSize = PxPoint2();
     return false;
   }
 

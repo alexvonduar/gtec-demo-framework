@@ -30,7 +30,8 @@
  ****************************************************************************************************************************************************/
 
 #include <FslDemoHost/Vulkan/Config/VulkanDeviceSetupUtil.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
+#include <FslBase/UncheckedNumericCast.hpp>
 #include <FslDemoHost/Vulkan/Config/PhysicalDeviceFeatureRequestUtil.hpp>
 #include <FslUtil/Vulkan1_0/Util/DeviceUtil.hpp>
 #include <FslUtil/Vulkan1_0/Util/PhysicalDeviceKHRUtil.hpp>
@@ -44,7 +45,8 @@ namespace Fsl
   namespace Vulkan
   {
     VulkanDeviceSetup VulkanDeviceSetupUtil::CreateSetup(const VUPhysicalDeviceRecord& physicalDevice, const VkSurfaceKHR surface,
-                                                         const std::deque<PhysicalDeviceFeatureRequest>& featureRequestDeque)
+                                                         const std::deque<PhysicalDeviceFeatureRequest>& featureRequestDeque,
+                                                         const ReadOnlySpan<const char*>& extensions)
     {
       {
         const auto deviceQueueFamilyProperties = PhysicalDeviceUtil::GetPhysicalDeviceQueueFamilyProperties(physicalDevice.Device);
@@ -53,21 +55,19 @@ namespace Fsl
 
         const uint32_t queueFamilyIndex = QueueUtil::GetQueueFamilyIndex(deviceQueueFamilyProperties, VK_QUEUE_GRAPHICS_BIT, 0, &supportFilter);
 
-        const float queuePriorities[1] = {0.0f};
+        std::array<float, 1> queuePriorities = {0.0f};
         VkDeviceQueueCreateInfo deviceQueueCreateInfo{};
         deviceQueueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
         deviceQueueCreateInfo.flags = 0;
         deviceQueueCreateInfo.queueFamilyIndex = queueFamilyIndex;
-        deviceQueueCreateInfo.queueCount = 1;
-        deviceQueueCreateInfo.pQueuePriorities = queuePriorities;
-
-        std::array<const char*, 1> extensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+        deviceQueueCreateInfo.queueCount = static_cast<uint32_t>(queuePriorities.size());
+        deviceQueueCreateInfo.pQueuePriorities = queuePriorities.data();
 
         VkDeviceCreateInfo deviceCreateInfo{};
         deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
         deviceCreateInfo.queueCreateInfoCount = 1;
         deviceCreateInfo.pQueueCreateInfos = &deviceQueueCreateInfo;
-        deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+        deviceCreateInfo.enabledExtensionCount = UncheckedNumericCast<uint32_t>(extensions.size());
         deviceCreateInfo.ppEnabledExtensionNames = extensions.data();
 
         // Lookup the user defines feature requirements and set them

@@ -32,8 +32,8 @@
 #include <Shared/Camera/System/CameraSystem.hpp>
 #include <Shared/Camera/Adapter/Interface/ICameraSystemAdapter.hpp>
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
-#include <FslBase/Log/Math/LogExtent2D.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
+#include <FslBase/Log/Math/Pixel/FmtPxExtent2D.hpp>
 #include <FslBase/String/ToString.hpp>
 #include <algorithm>
 #include <cassert>
@@ -81,7 +81,7 @@ namespace Fsl
 
         if (allocateInfo.Flags.IsEnabled(CameraAdapterAllocateFlags::CustomExtent) && nativeConfig.Extent != allocateInfo.Extent)
         {
-          FSLLOG_WARNING("CameraAdapter extent different than requested: " << nativeConfig.Extent << " vs " << allocateInfo.Extent);
+          FSLLOG3_WARNING("CameraAdapter extent different than requested: {} vs {}", nativeConfig.Extent, allocateInfo.Extent);
         }
 
         CameraConfig finalCameraConfig(cameraType, nativeConfig.Extent, nativeConfig.ActivePixelFormat, nativeConfig.Stride);
@@ -91,7 +91,7 @@ namespace Fsl
       void ValidateAdapterSystems(const std::vector<std::shared_ptr<ICameraSystemAdapter>>& cameraAdapterSystems)
       {
         std::unordered_set<CameraType, CameraTypeHash> uniqueTypes(cameraAdapterSystems.size());
-        for (auto& entry : cameraAdapterSystems)
+        for (const auto& entry : cameraAdapterSystems)
         {
           if (!entry)
           {
@@ -127,7 +127,7 @@ namespace Fsl
     }
 
 
-    Camera CameraSystem::Create(const Extent2D& cameraExtent)
+    Camera CameraSystem::Create(const PxExtent2D& cameraExtent)
     {
       auto defaultCameraFactory = GetDefaultCameraFactory(m_cameraAdapterSystems);
       const auto cameraType = defaultCameraFactory->GetCameraType();
@@ -137,7 +137,7 @@ namespace Fsl
     }
 
 
-    Camera CameraSystem::Create(const CameraType cameraType, const Extent2D& cameraExtent)
+    Camera CameraSystem::Create(const CameraType cameraType, const PxExtent2D& cameraExtent)
     {
       auto itrFind = std::find_if(m_cameraAdapterSystems.begin(), m_cameraAdapterSystems.end(),
                                   [cameraType](const std::shared_ptr<ICameraSystemAdapter>& val) { return (val->GetCameraType() == cameraType); });

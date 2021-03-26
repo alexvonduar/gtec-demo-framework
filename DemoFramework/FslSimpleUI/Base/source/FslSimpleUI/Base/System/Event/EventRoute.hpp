@@ -31,11 +31,10 @@
  *
  ****************************************************************************************************************************************************/
 
-#include <FslBase/Noncopyable.hpp>
 #include <FslSimpleUI/Base/WindowFlags.hpp>
 #include <FslSimpleUI/Base/Event/EventRoutingStrategy.hpp>
-#include <deque>
 #include <memory>
+#include <vector>
 
 namespace Fsl
 {
@@ -46,17 +45,20 @@ namespace Fsl
     class WindowEvent;
 
     //! @brief  A event route contains the complete route that the event will traverse for a target and routing strategy.
-    class EventRoute : private Noncopyable
+    class EventRoute
     {
       WindowFlags m_flags;
-      std::deque<std::shared_ptr<TreeNode>> m_tunnelList;
-      std::deque<std::shared_ptr<TreeNode>> m_bubbleList;
+      std::vector<std::shared_ptr<TreeNode>> m_tunnelList;
+      std::vector<std::shared_ptr<TreeNode>> m_bubbleList;
       std::shared_ptr<TreeNode> m_target;
       bool m_isInitialized;
 
     public:
+      EventRoute(const EventRoute&) = delete;
+      EventRoute& operator=(const EventRoute&) = delete;
+
       EventRoute();
-      EventRoute(const WindowFlags& flags);
+      explicit EventRoute(const WindowFlags& flags);
       ~EventRoute();
 
       void Initialize(const WindowFlags& flags);
@@ -77,7 +79,7 @@ namespace Fsl
       void Clear();
 
       //! @brief Get the target
-      std::shared_ptr<TreeNode> GetTarget() const
+      const std::shared_ptr<TreeNode>& GetTarget() const
       {
         return m_target;
       }
@@ -106,7 +108,7 @@ namespace Fsl
       };
 
     private:
-      void SendTo(IEventHandler& eventHandler, const std::deque<std::shared_ptr<TreeNode>>& deque, const std::shared_ptr<WindowEvent>& theEvent,
+      void SendTo(IEventHandler& eventHandler, const std::vector<std::shared_ptr<TreeNode>>& nodes, const std::shared_ptr<WindowEvent>& theEvent,
                   const bool isTunneling);
       void BuildTunnel(const std::shared_ptr<TreeNode>& target);
       void BuildBubble(const std::shared_ptr<TreeNode>& target);

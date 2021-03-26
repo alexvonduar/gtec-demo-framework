@@ -30,7 +30,7 @@
  ****************************************************************************************************************************************************/
 
 #include "DFNativeBatchCamera.hpp"
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslUtil/OpenGLES3/Exceptions.hpp>
 #include <FslUtil/OpenGLES3/GLCheck.hpp>
 #include <Shared/Camera/Platform/PlatformCameraSystem.hpp>
@@ -48,7 +48,7 @@ namespace Fsl
     //!        - from the rScratchpadBitmap to the rDstTexture
     bool TryCaptureFrame(Helios::Camera& rCamera, GLES3::GLTexture& rDstTexture, Bitmap& rScratchpadBitmap, uint32_t& rCameraFrameId)
     {
-      bool hasNewFrame;
+      bool hasNewFrame = false;
       {    // Capture a frame into a bitmap
         RawBitmapEx rawBitmap;
         Bitmap::ScopedDirectAccess directAccess(rScratchpadBitmap, rawBitmap);
@@ -75,11 +75,11 @@ namespace Fsl
     GLTextureParameters textureParameters(GL_LINEAR, GL_LINEAR, GL_REPEAT, GL_REPEAT);
     m_nativeTexture.SetData(m_cameraFrameBitmap, textureParameters);
 
-    FSLLOG_WARNING("FIX: Some of the camera adapters do not obey our origin request so the image is upside down");
+    FSLLOG3_WARNING("FIX: Some of the camera adapters do not obey our origin request so the image is upside down");
   }
 
 
-  void DFNativeBatchCameraRender::Draw(const DemoTime& demoTime, const std::shared_ptr<GLES3::NativeBatch2D>& nativeBatch, const Point2& res)
+  void DFNativeBatchCameraRender::Draw(const DemoTime& /*demoTime*/, const std::shared_ptr<GLES3::NativeBatch2D>& nativeBatch, const PxSize2D& resPx)
   {
     TryCaptureFrame(m_camera, m_nativeTexture, m_cameraFrameBitmap, m_cameraFrameId);
 
@@ -93,8 +93,8 @@ namespace Fsl
     nativeBatch->Draw(m_nativeTexture, Vector2(0, 0), Color::White());
 
     // GLES3 native texture handle at top right corner scaled to a 4th of its size
-    Point2 scaledSize(nativeTextureSize.X / 4, nativeTextureSize.Y / 4);
-    Rectangle dstRectangle(res.X - scaledSize.X, 0, scaledSize.X, scaledSize.Y);
+    PxPoint2 scaledSize(nativeTextureSize.Width() / 4, nativeTextureSize.Height() / 4);
+    PxRectangle dstRectangle(resPx.Width() - scaledSize.X, 0, scaledSize.X, scaledSize.Y);
     nativeBatch->Draw(GLES3::GLTextureInfo(m_nativeTexture.Get(), m_nativeTexture.GetSize()), dstRectangle, Color::White());
 
     // API independent texture

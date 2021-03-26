@@ -33,7 +33,7 @@
 
 #include <FslBase/Math/BoundingBox.hpp>
 #include <FslBase/Math/Matrix.hpp>
-#include <FslBase/Math/Matrix3.hpp>
+#include <FslBase/Math/Matrix3Std140.hpp>
 #include <FslBase/Math/Viewport.hpp>
 #include <FslDemoApp/Base/Service/Keyboard/IKeyboard.hpp>
 #include <FslDemoApp/Base/Service/Mouse/IMouse.hpp>
@@ -76,7 +76,7 @@ namespace Fsl
     {
       // Matrix WorldView;
       Matrix WorldViewProjection;
-      Matrix3 NormalMatrix;
+      Matrix3Std140 NormalMatrix;
     };
 
   public:
@@ -216,7 +216,7 @@ namespace Fsl
     LightUBOData m_lightFragUboData;
 
   public:
-    ObjectSelection(const DemoAppConfig& config);
+    explicit ObjectSelection(const DemoAppConfig& config);
 
   protected:
     void OnMouseButtonEvent(const MouseButtonEvent& event) override;
@@ -231,7 +231,7 @@ namespace Fsl
   private:
     void UpdateCameraControlInput(const DemoTime& demoTime, const KeyboardState& keyboardState);
 
-    bool CheckCollision(const Point2& screenSpacePosition);
+    bool CheckCollision(const PxPoint2& screenSpacePosition);
 
     void DrawMeshes(const FrameResources& frame, const VkCommandBuffer commandBuffer);
     void DrawPlaneMesh(const FrameResources& frame, const VkCommandBuffer commandBuffer);

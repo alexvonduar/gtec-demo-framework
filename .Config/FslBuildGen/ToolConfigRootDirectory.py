@@ -67,11 +67,12 @@ class ToolConfigRootDirectory(object):
             self.DynamicName = dynamicPath
         variableProcessor = VariableProcessor(log)
         # NOTE: workaround Union of tuples not being iterable bug in mypy https://github.com/python/mypy/issues/1575
-        tupleResult = variableProcessor.TryExtractLeadingEnvironmentVariableNameAndPath(self.DynamicName, dynamicSourceRootDir != None)
+        tupleResult = variableProcessor.TryExtractLeadingEnvironmentVariableNameAndPath(self.DynamicName, dynamicSourceRootDir is not None)
         env = tupleResult[0]
         remainingPath = tupleResult[1]
         if env is None:
             raise Exception("Root dirs are expected to contain environment variables '{0}'".format(self.DynamicName))
+        remainingPath = remainingPath if remainingPath is not None else ""
 
         resolvedPath = IOUtil.GetEnvironmentVariableForDirectory(env, dirMustExist)
         if not IOUtil.Exists(resolvedPath):

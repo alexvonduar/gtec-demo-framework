@@ -32,7 +32,7 @@
 #include <FslUtil/Vulkan1_0/VUSwapchainKHR.hpp>
 #include <FslUtil/Vulkan1_0/Exceptions.hpp>
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <RapidVulkan/Check.hpp>
 #include <cassert>
 #include <cstring>
@@ -239,7 +239,7 @@ namespace Fsl
     void VUSwapchainKHR::RefreshImages()
     {
       // We dont use the VulkanHelper::GetSwapchainImagesKHR because we want to reuse our existing vector
-      uint32_t swapchainImagesCount;
+      uint32_t swapchainImagesCount = 0;
       RAPIDVULKAN_CHECK(vkGetSwapchainImagesKHR(m_swapchain.GetDevice(), m_swapchain.Get(), &swapchainImagesCount, nullptr));
 
       if (swapchainImagesCount != m_images.size())
@@ -254,7 +254,7 @@ namespace Fsl
 
     uint32_t VUSwapchainKHR::GetImageCount() const
     {
-      FSLLOG_DEBUG_WARNING_IF(!IsValid(), "GetImageCount() swapchain is VK_NULL_HANDLE returning 0");
+      FSLLOG3_DEBUG_WARNING_IF(!IsValid(), "GetImageCount() swapchain is VK_NULL_HANDLE returning 0");
       return static_cast<uint32_t>(m_images.size());
     }
 
@@ -263,7 +263,7 @@ namespace Fsl
     {
       if (arrayIndex > m_images.size())
       {
-        FSLLOG_DEBUG_WARNING_IF(!IsValid(), "[] swapchain is VK_NULL_HANDLE so image count will be zero");
+        FSLLOG3_DEBUG_WARNING_IF(!IsValid(), "[] swapchain is VK_NULL_HANDLE so image count will be zero");
         throw std::invalid_argument("arrayIndex is out of bounds");
       }
       return m_images[arrayIndex];
@@ -314,7 +314,7 @@ namespace Fsl
     VkResult VUSwapchainKHR::TryQueuePresent(const VkQueue queue, const uint32_t waitSemaphoreCount, const VkSemaphore* pWaitSemaphores,
                                              const uint32_t* pImageIndices, VkResult* pResults) const
     {
-      auto swapchain = m_swapchain.Get();
+      VkSwapchainKHR swapchain = m_swapchain.Get();
 
       VkPresentInfoKHR presentInfo{};
       presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;

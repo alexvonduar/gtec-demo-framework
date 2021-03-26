@@ -31,10 +31,11 @@
 
 #include <FslDemoHost/Vulkan/Config/VulkanValidationUtil.hpp>
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
-#include <FslBase/Log/Math/LogExtent2D.hpp>
-#include <FslUtil/Vulkan1_0/Util/ConvertUtil.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
+#include <FslBase/Math/Pixel/PxExtent2D.hpp>
+#include <FslBase/Log/Math/Pixel/FmtPxExtent2D.hpp>
 #include <FslUtil/Vulkan1_0/Log/All.hpp>
+#include <FslUtil/Vulkan1_0/TypeConverter.hpp>
 #include <RapidVulkan/Check.hpp>
 
 namespace Fsl
@@ -43,24 +44,7 @@ namespace Fsl
   {
     namespace VulkanValidationUtil
     {
-      namespace
-      {
-        std::string ToString(const Extent2D& extent)
-        {
-          std::stringstream stream;
-          stream << extent;
-          return stream.str();
-        }
-
-        std::string ToString(const VkExtent2D& extent)
-        {
-          std::stringstream stream;
-          stream << extent;
-          return stream.str();
-        }
-      }
-
-      void CheckWindowAndSurfaceExtent(const VkPhysicalDevice physicalDevice, const VkSurfaceKHR surface, const Extent2D& windowExtent)
+      void CheckWindowAndSurfaceExtent(const VkPhysicalDevice physicalDevice, const VkSurfaceKHR surface, const PxExtent2D& windowExtent)
       {
         VkSurfaceCapabilitiesKHR surfaceCapabilities{};
         RAPIDVULKAN_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCapabilities));
@@ -69,12 +53,12 @@ namespace Fsl
         // https://www.khronos.org/registry/vulkan/specs/1.0-extensions/html/vkspec.html#vkGetPhysicalDeviceSurfaceCapabilitiesKHR
         if (surfaceCapabilities.currentExtent.width == 0xFFFFFFFF && surfaceCapabilities.currentExtent.height == 0xFFFFFFFF)
         {
-          FSLLOG2(LogType::Verbose4, "Skipping vulkan native window and surface extent comparison due to the surface not being defined.")
+          FSLLOG3_VERBOSE4("Skipping vulkan native window and surface extent comparison due to the surface not being defined.")
         }
-        else if (ConvertUtil::Convert(surfaceCapabilities.currentExtent) != windowExtent)
+        else if (TypeConverter::UncheckedTo<PxExtent2D>(surfaceCapabilities.currentExtent) != windowExtent)
         {
-          throw InitFailedException("The Vulkan surface extent did not match the window extent. Screen: " + ToString(windowExtent) +
-                                    " vs surface: " + ToString(surfaceCapabilities.currentExtent));
+          throw InitFailedException(fmt::format("The Vulkan surface extent did not match the window extent. Screen: {} vs surface: {}x{}",
+                                                windowExtent, surfaceCapabilities.currentExtent.width, surfaceCapabilities.currentExtent.height));
         }
       }
     };

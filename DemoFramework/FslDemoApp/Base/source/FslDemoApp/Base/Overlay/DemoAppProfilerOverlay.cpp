@@ -31,18 +31,21 @@
 
 #include <FslDemoApp/Base/Overlay/DemoAppProfilerOverlay.hpp>
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/Math/Point2.hpp>
 #include <FslBase/String/StringCompat.hpp>
 #include <FslDemoApp/Base/DemoAppConfig.hpp>
-#include <FslDemoApp/Base/Service/Profiler/IProfilerService.hpp>
+#include <FslDemoService/CpuStats/ICpuStatsService.hpp>
 #include <FslDemoService/Graphics/IBasic2D.hpp>
 #include <FslDemoService/Graphics/IGraphicsService.hpp>
+#include <FslDemoService/Profiler/IProfilerService.hpp>
+#include <FslDemoService/Profiler/DefaultProfilerColors.hpp>
 #include <FslService/Consumer/ServiceProvider.hpp>
 #include <cassert>
 #include <cstdio>
 #include <cstring>
 #include <cmath>
+#include <utility>
 
 namespace Fsl
 {
@@ -59,11 +62,11 @@ namespace Fsl
 
 
   DemoAppProfilerOverlay::CustomRecord::CustomRecord(const ProfilerCustomCounterHandle& handle, const ProfilerCustomCounterDesc& desc,
-                                                     const std::shared_ptr<DemoAppProfilerGraph>& graph)
+                                                     std::shared_ptr<DemoAppProfilerGraph> graph)
     : Handle(handle)
     , Name(desc.Name)
     , TheColor(desc.ColorHint)
-    , Graph(graph)
+    , Graph(std::move(graph))
   {
     int32_t digits1 = MinimumDigits(desc.MinValue);
     const int32_t digits2 = MinimumDigits(desc.MaxValue);
@@ -74,26 +77,29 @@ namespace Fsl
 
     const int32_t maxDigits = std::max(digits1, digits2);
 
-    StringCompat::sprintf_s(FormatString.data(), FormatString.size(), "%%%dd", maxDigits);
+    StringCompat::sprintf_s(FormatString.data(), FormatString.size(), "{:%d}", maxDigits);
   }
 
 
-  DemoAppProfilerOverlay::DemoAppProfilerOverlay(const ServiceProvider& serviceProvider)
-    : m_graphTotal(0, 2000, Point2(DEFAULT_GRAPH_WIDTH, DEFAULT_GRAPH_HEIGHT))
+  DemoAppProfilerOverlay::DemoAppProfilerOverlay(const ServiceProvider& serviceProvider, const DemoAppStatsFlags& logStatsFlags)
+    : m_logStatsFlags(logStatsFlags)
+    , m_graphTotal(0, 2000, Point2(DEFAULT_GRAPH_WIDTH, DEFAULT_GRAPH_HEIGHT))
     , m_graphUpdate(0, 2000, Point2(DEFAULT_GRAPH_WIDTH, DEFAULT_GRAPH_HEIGHT))
     , m_graphDraw(0, 2000, Point2(DEFAULT_GRAPH_WIDTH, DEFAULT_GRAPH_HEIGHT))
+    , m_graphCPU(0, 1000, Point2(DEFAULT_GRAPH_WIDTH, DEFAULT_GRAPH_HEIGHT))
     , m_customConfigurationRevision(0)    // the profiler service never returns zero for its revision
 
   {
     m_profilerService = serviceProvider.Get<IProfilerService>();
     m_graphicsService = serviceProvider.TryGet<IGraphicsService>();
+    m_cpuStatsService = serviceProvider.TryGet<ICpuStatsService>();
   }
 
 
   DemoAppProfilerOverlay::~DemoAppProfilerOverlay() = default;
 
 
-  void DemoAppProfilerOverlay::Draw(const Point2& screenResolution)
+  void DemoAppProfilerOverlay::Draw(const DemoWindowMetrics& windowMetrics)
   {
     MaintainCachedCustomEntries();
 
@@ -114,46 +120,56 @@ namespace Fsl
       basic2D->Begin();
 
       bool showFPS = true;
-      bool showMicro = true;
+      bool showMilliseconds = true;
 
-      if (showFPS || showMicro)
+      if (showFPS || showMilliseconds)
       {
-        const int TMP_BUFFER_SIZE = 256;
-        char tmp[TMP_BUFFER_SIZE];
-        int numChars = 0;
-        if (showFPS && showMicro)
+        m_scracthpad.clear();
+        if (m_logStatsFlags.IsFlagged(DemoAppStatsFlags::Frame))
         {
-          numChars = StringCompat::sprintf_s(tmp, TMP_BUFFER_SIZE, "%.1fFPS %.1fms", frameTime.GetFramePerSecond(), frameTime.TotalTime / 1000.0f);
+          if (showFPS && showMilliseconds)
+          {
+            fmt::format_to(m_scracthpad, "{:5.1f}FPS {:4.1f}ms", frameTime.GetFramePerSecond(), frameTime.TotalTime / 1000.0f);
+          }
+          else if (showFPS)
+          {
+            fmt::format_to(m_scracthpad, "{:5.1f}FPS", frameTime.GetFramePerSecond());
+          }
+          else if (showMilliseconds)
+          {
+            fmt::format_to(m_scracthpad, "{:4.1f}ms", frameTime.TotalTime / 1000.0f);
+          }
         }
-        else if (showFPS)
+        if (m_logStatsFlags.IsFlagged(DemoAppStatsFlags::CPU) && m_cpuStatsService)
         {
-          numChars = StringCompat::sprintf_s(tmp, TMP_BUFFER_SIZE, "%.1fFPS", frameTime.GetFramePerSecond());
-        }
-        else if (showMicro)
-        {
-          numChars = StringCompat::sprintf_s(tmp, TMP_BUFFER_SIZE, "%.1fms", frameTime.TotalTime / 1000.0f);
+          float cpuUsage = 0.0f;
+          if (m_cpuStatsService->TryGetApplicationCpuUsage(cpuUsage))
+          {
+            m_graphCPU.Add(static_cast<int32_t>(std::round(cpuUsage * 10.0f)));
+            fmt::format_to(m_scracthpad, "{}{:5.1f}cpu", m_scracthpad.size() > 0 ? " " : "", cpuUsage);
+          }
         }
 
-        const Point2 fontSize = basic2D->FontSize();
-        Vector2 dstPos(0.0f, static_cast<float>(screenResolution.Y - fontSize.Y));
-        if (numChars > 0)
+        const PxSize2D fontSize = basic2D->FontSize();
+        Vector2 dstPos(0.0f, static_cast<float>(windowMetrics.ExtentPx.Height - fontSize.Height()));
+        if (m_scracthpad.size() > 0)
         {
-          basic2D->DrawString(tmp, dstPos);
+          basic2D->DrawString(StringViewLite(m_scracthpad.data(), m_scracthpad.size()), dstPos);
         }
 
         {    // Render text for the custom counters
-          numChars = std::max(numChars, 0);
-          dstPos.X += (numChars + 1) * fontSize.X;
+          dstPos.X += static_cast<float>((m_scracthpad.size() + 1) * fontSize.Width());
           std::list<CustomRecord>::const_iterator itr = m_customCounters.begin();
           while (itr != m_customCounters.end())
           {
-            numChars = StringCompat::sprintf_s(tmp, TMP_BUFFER_SIZE, itr->FormatString.data(), m_profilerService->Get(itr->Handle));
-            if (numChars > 0)
+            m_scracthpad.clear();
+            fmt::format_to(m_scracthpad, itr->FormatString.data(), m_profilerService->Get(itr->Handle));
+            if (m_scracthpad.size() > 0u)
             {
-              basic2D->DrawString(tmp, dstPos);
-              dstPos.X += numChars * fontSize.X;
+              basic2D->DrawString(StringViewLite(m_scracthpad.data(), m_scracthpad.size()), dstPos);
+              dstPos.X += static_cast<float>(m_scracthpad.size() * fontSize.Width());
               basic2D->DrawString(itr->Name, dstPos);
-              dstPos.X += (itr->Name.size() + 1) * fontSize.X;
+              dstPos.X += static_cast<float>((itr->Name.size() + 1) * fontSize.Width());
             }
             ++itr;
           }
@@ -161,13 +177,22 @@ namespace Fsl
       }
 
       const Point2 graphSize = m_graphTotal.GetSize();
-      const Vector2 dstPosGraph(static_cast<float>(screenResolution.X - graphSize.X), static_cast<float>(screenResolution.Y - graphSize.Y));
+      const Vector2 dstPosGraph(static_cast<float>(windowMetrics.ExtentPx.Width - graphSize.X),
+                                static_cast<float>(windowMetrics.ExtentPx.Height - graphSize.Y));
 
       UpdateAndDrawCustomCounters(basic2D, dstPosGraph);
 
-      m_graphTotal.Draw(basic2D, dstPosGraph, Color::Green());
-      m_graphUpdate.Draw(basic2D, dstPosGraph, Color::Cyan());
-      m_graphDraw.Draw(basic2D, dstPosGraph, Color::Yellow());
+      if (m_logStatsFlags.IsFlagged(DemoAppStatsFlags::CPU))
+      {
+        m_graphCPU.Draw(basic2D, dstPosGraph, DefaultProfilerColors::CpuLoad);
+      }
+
+      if (m_logStatsFlags.IsFlagged(DemoAppStatsFlags::Frame))
+      {
+        m_graphTotal.Draw(basic2D, dstPosGraph, DefaultProfilerColors::Total);
+        m_graphUpdate.Draw(basic2D, dstPosGraph, DefaultProfilerColors::Update);
+        m_graphDraw.Draw(basic2D, dstPosGraph, DefaultProfilerColors::Draw);
+      }
 
       basic2D->End();
     }

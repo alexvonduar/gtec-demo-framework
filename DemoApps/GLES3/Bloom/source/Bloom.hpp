@@ -50,7 +50,7 @@ namespace Fsl
 
   class Bloom : public DemoAppGLES3
   {
-    enum BlurShaderType
+    enum class BlurShaderType
     {
       Gaussian5X5,
       Gaussian9X9,
@@ -97,12 +97,12 @@ namespace Fsl
     GLint m_locBloomTextureLevel;
 
     bool m_renderUI;
-    int32_t m_gaussianBlurKernelWeight;
+    float m_gaussianBlurKernelWeight;
     std::string m_strShaderVertPass;
     BlurShaderType m_activeBlueShaderType;
 
   public:
-    Bloom(const DemoAppConfig& config);
+    explicit Bloom(const DemoAppConfig& config);
     ~Bloom() override;
 
   protected:

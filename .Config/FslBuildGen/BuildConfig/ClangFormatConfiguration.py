@@ -36,11 +36,12 @@ from FslBuildGen import IOUtil
 from FslBuildGen.BuildConfig.ClangConfiguration import ClangConfiguration
 
 class ClangFormatConfiguration(ClangConfiguration):
-    def __init__(self, fileExtensions: List[str], recipePackageName: str) -> None:
+    def __init__(self, fileExtensions: List[str], recipePackageName: str, ninjaRecipePackageName: str) -> None:
         super().__init__()
         self.CustomFormatFile = ".clang-format"
         self.FileExtensions = fileExtensions
         self.RecipePackageName = recipePackageName
+        self.NinjaRecipePackageName = ninjaRecipePackageName
 
         # Additional user supplied command line arguments (FIX: should be moved)
         self.AdditionalUserArguments = []  # type: List[str]
@@ -57,4 +58,3 @@ class ClangFormatConfiguration(ClangConfiguration):
                 raise Exception("ClangFormatConfiguration: File extension can not start with '..'")
             if not fileExt.startswith("."):
                 raise Exception("ClangFormatConfiguration: File extension '{0}' does not start with '.'")
-

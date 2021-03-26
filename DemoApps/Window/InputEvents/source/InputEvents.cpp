@@ -29,7 +29,7 @@
  *
  ****************************************************************************************************************************************************/
 
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/Exceptions.hpp>
 #include "InputEvents.hpp"
 
@@ -79,15 +79,15 @@ namespace Fsl
   }
 
 
-  void InputEvents::Update(const DemoTime& demoTime)
+  void InputEvents::Update(const DemoTime& /*demoTime*/)
   {
     m_logger.UpdateGamepadStates();
   }
 
 
-  void InputEvents::Draw(const DemoTime& demoTime)
+  void InputEvents::Draw(const DemoTime& /*demoTime*/)
   {
-    m_logger.Draw(GetScreenResolution());
+    m_logger.Draw(GetWindowSizePx());
   }
 
 }

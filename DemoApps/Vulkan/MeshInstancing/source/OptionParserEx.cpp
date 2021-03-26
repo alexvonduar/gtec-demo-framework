@@ -31,7 +31,7 @@
 
 #include "OptionParserEx.hpp"
 #include <FslBase/BasicTypes.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/Math/MathHelper.hpp>
 #include <FslBase/String/StringParseUtil.hpp>
 #include <FslBase/Getopt/OptionBaseValues.hpp>
@@ -76,33 +76,32 @@ namespace Fsl
   }
 
 
-  OptionParseResult::Enum OptionParserEx::OnParse(const int32_t cmdId, const char* const pszOptArg)
+  OptionParseResult OptionParserEx::OnParse(const int32_t cmdId, const StringViewLite& strOptArg)
   {
     switch (cmdId)
     {
     case CommandId::InstanceCount:
-      StringParseUtil::Parse(m_instanceCount, pszOptArg);
+      StringParseUtil::Parse(m_instanceCount, strOptArg);
       return OptionParseResult::Parsed;
     case CommandId::Preset:
     {
-      if (pszOptArg == nullptr)
+      if (strOptArg == nullptr)
       {
         return OptionParseResult::Failed;
       }
-      std::string input(pszOptArg);
-      if (input == "low")
+      if (strOptArg == "low")
       {
         m_instanceCount = INSTANCE_COUNT_LOW;
       }
-      else if (input == "medium")
+      else if (strOptArg == "medium")
       {
         m_instanceCount = INSTANCE_COUNT_MEDIUM;
       }
-      else if (input == "high")
+      else if (strOptArg == "high")
       {
         m_instanceCount = INSTANCE_COUNT_HIGH;
       }
-      else if (input == "ultra")
+      else if (strOptArg == "ultra")
       {
         m_instanceCount = INSTANCE_COUNT_ULTRA;
       }
@@ -113,7 +112,7 @@ namespace Fsl
       return OptionParseResult::Parsed;
     }
     default:
-      return ADemoOptionParser::OnParse(cmdId, pszOptArg);
+      return ADemoOptionParser::OnParse(cmdId, strOptArg);
     }
   }
 
@@ -123,13 +122,13 @@ namespace Fsl
     if (m_instanceCount < 1)
     {
       const int32_t newCount = 16;
-      FSLLOG_WARNING("InstanceCount was forced to " << newCount << " instead of the invalid value: " << m_instanceCount);
+      FSLLOG3_WARNING("InstanceCount was forced to {} instead of the invalid value: {}", newCount, m_instanceCount);
       m_instanceCount = newCount;
     }
     if ((m_instanceCount % 16) != 0)
     {
       const int32_t newCount = ((m_instanceCount / 16) + 1) * 16;
-      FSLLOG_WARNING("InstanceCount was forced to " << newCount << " instead of: " << m_instanceCount);
+      FSLLOG3_WARNING("InstanceCount was forced to {} instead of: {}", newCount, m_instanceCount);
       m_instanceCount = newCount;
     }
 

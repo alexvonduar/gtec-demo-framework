@@ -29,13 +29,14 @@
  *
  ****************************************************************************************************************************************************/
 
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslDemoApp/OpenGLES3/Setup/RegisterDemoApp.hpp>
 #include <FslUtil/EGL/EGLUtil.hpp>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include "SRGBFramebuffer.hpp"
 #include "SharedData.hpp"
+#include <array>
 
 // If our EGL header don't have these magic values defined we define em here since we dont use them unless the extension is detected.
 // The values are defined here:
@@ -58,11 +59,11 @@ namespace Fsl
   namespace
   {
     // Custom EGL config (these will per default overwrite the custom settings. However a exact EGL config can be used)
-    const EGLint g_eglConfigAttribs[] = {EGL_NONE};
+    const std::array<EGLint, 1> g_eglConfigAttribs = {EGL_NONE};
 
-    const EGLint g_eglCreateWindowAttribs[] = {EGL_GL_COLORSPACE, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE};
+    const std::array<EGLint, 3> g_eglCreateWindowAttribs = {EGL_GL_COLORSPACE, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE};
 
-    const EGLint* GetCreateWindowSurfaceAttribs(const EGLDisplay display, const DemoAppHostCreateWindowSurfaceInfoEGL& createInfo,
+    const EGLint* GetCreateWindowSurfaceAttribs(const EGLDisplay display, const DemoAppHostCreateWindowSurfaceInfoEGL& /*createInfo*/,
                                                 const std::shared_ptr<ITag>& userTag)
     {
       const auto userTagEx = std::dynamic_pointer_cast<SharedData>(userTag);
@@ -71,14 +72,14 @@ namespace Fsl
       const bool hasExtension = EGLUtil::HasExtension(display, "EGL_KHR_gl_colorspace");
       if (!userTagEx || !hasExtension)
       {
-        FSLLOG_IF(!hasExtension, "EGL_KHR_gl_colorspace not detected");
-        FSLLOG_IF(!userTagEx, "Expected user tag missing");
+        FSLLOG3_INFO_IF(!hasExtension, "EGL_KHR_gl_colorspace not detected");
+        FSLLOG3_INFO_IF(!userTagEx, "Expected user tag missing");
         return nullptr;
       }
 
       userTagEx->SRGBFramebufferEnabled = true;
-      FSLLOG("EGL_KHR_gl_colorspace detected, requesting EGL_GL_COLORSPACE=EGL_GL_COLORSPACE_SRGB_KHR");
-      return g_eglCreateWindowAttribs;
+      FSLLOG3_INFO("EGL_KHR_gl_colorspace detected, requesting EGL_GL_COLORSPACE=EGL_GL_COLORSPACE_SRGB_KHR");
+      return g_eglCreateWindowAttribs.data();
     }
   }
 
@@ -87,7 +88,7 @@ namespace Fsl
   {
     const auto sharedData = std::make_shared<SharedData>();
 
-    DemoAppHostConfigEGL config(g_eglConfigAttribs);
+    DemoAppHostConfigEGL config(g_eglConfigAttribs.data());
     config.SetUserTag(sharedData);
     // Hook into the system and allow us to customize the attribs passed to eglCreateWindowSurface at runtime
     // depending on the availability of extensions

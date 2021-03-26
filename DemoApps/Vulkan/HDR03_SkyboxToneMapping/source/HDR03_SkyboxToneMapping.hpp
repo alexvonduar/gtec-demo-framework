@@ -70,8 +70,8 @@ namespace Fsl
     {
       Vulkan::VUBufferMemory SceneVertUboBuffer;
       Vulkan::VUBufferMemory TonemapVertUboBuffer;
-      VkDescriptorSet SceneDescriptorSet;
-      VkDescriptorSet TonemapDescriptorSet;
+      VkDescriptorSet SceneDescriptorSet{VK_NULL_HANDLE};
+      VkDescriptorSet TonemapDescriptorSet{VK_NULL_HANDLE};
     };
 
     struct VertexUBOData
@@ -117,7 +117,7 @@ namespace Fsl
     {
       RapidVulkan::RenderPass MainRenderPass;
       //! We only need one RenderAttachment as command buffers on the same queue are executed in order
-      Vulkan::VUTexture RenderAttachment;
+      Vulkan::VUImageMemoryView RenderAttachment;
 
       RapidVulkan::GraphicsPipeline ScenePipeline;
       std::array<RapidVulkan::GraphicsPipeline, Tonemapper::COUNT> PipelineTonemapper;
@@ -141,12 +141,12 @@ namespace Fsl
     Vector2 m_rotationSpeed;
 
   public:
-    HDR03_SkyboxToneMapping(const DemoAppConfig& config);
+    explicit HDR03_SkyboxToneMapping(const DemoAppConfig& config);
 
   protected:
     void OnKeyEvent(const KeyEvent& event) override;
     void OnMouseButtonEvent(const MouseButtonEvent& event) override;
-    void Resized(const Point2& size) override;
+    void ConfigurationChanged(const DemoWindowMetrics& windowMetrics) override;
     void Update(const DemoTime& demoTime) override;
     void VulkanDraw(const DemoTime& demoTime, RapidVulkan::CommandBuffers& rCmdBuffers, const VulkanBasic::DrawContext& drawContext) override;
 

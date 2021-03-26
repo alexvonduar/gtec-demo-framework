@@ -30,7 +30,7 @@
  ****************************************************************************************************************************************************/
 
 #include <FslDemoApp/Base/AConsoleDemoApp.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslDemoApp/Base/DemoAppExtension.hpp>
 #include <FslDemoApp/Base/Service/Events/Basic/KeyEvent.hpp>
 #include <FslDemoApp/Base/Service/Events/IEvent.hpp>
@@ -72,14 +72,14 @@ namespace Fsl
 
     // if ((eventType & EventType::ComplexEvent) == 0)
     //{
-    //  FSLLOG_DEBUG_WARNING("Unhandled event: " << static_cast<int32_t>(pEvent->GetEventType()));
+    //  FSLLOG3_DEBUG_WARNING("Unhandled event: " << static_cast<int32_t>(pEvent->GetEventType()));
     //}
   }
 
 
-  void AConsoleDemoApp::_Resized(const Point2& size)
+  void AConsoleDemoApp::_ConfigurationChanged(const DemoWindowMetrics& windowMetrics)
   {
-    FSL_PARAM_NOT_USED(size);
+    FSL_PARAM_NOT_USED(windowMetrics);
   }
 
 
@@ -130,7 +130,7 @@ namespace Fsl
 
   std::shared_ptr<IDemoAppControl> AConsoleDemoApp::GetDemoAppControl() const
   {
-    const std::shared_ptr<IDemoAppControl> demoAppControl = m_demoAppControl.lock();
+    std::shared_ptr<IDemoAppControl> demoAppControl = m_demoAppControl.lock();
     if (!demoAppControl)
     {
       throw ServiceUnavailableException("The service is no longer available");
@@ -141,7 +141,7 @@ namespace Fsl
 
   std::shared_ptr<IContentManager> AConsoleDemoApp::GetContentManager() const
   {
-    const std::shared_ptr<IContentManager> contentManager = m_contentManger.lock();
+    std::shared_ptr<IContentManager> contentManager = m_contentManger.lock();
     if (!contentManager)
     {
       throw ServiceUnavailableException("The service is no longer available");
@@ -152,7 +152,7 @@ namespace Fsl
 
   std::shared_ptr<IPersistentDataManager> AConsoleDemoApp::GetPersistentDataManager() const
   {
-    const std::shared_ptr<IPersistentDataManager> manager = m_persistentDataManager.lock();
+    std::shared_ptr<IPersistentDataManager> manager = m_persistentDataManager.lock();
     if (!manager)
     {
       throw ServiceUnavailableException("The service is no longer available");

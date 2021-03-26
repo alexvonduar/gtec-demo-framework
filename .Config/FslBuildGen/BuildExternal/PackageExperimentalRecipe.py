@@ -36,6 +36,7 @@ from FslBuildGen.Log import Log
 from FslBuildGen.BuildExternal.DataTypes import RecipeType
 from FslBuildGen.DataTypes import BuildRecipePipelineCommand
 from FslBuildGen.Location.ResolvedPath import ResolvedPath
+from FslBuildGen.Version import Version
 from FslBuildGen.Xml.XmlExperimentalRecipe import XmlExperimentalRecipe
 
 class PackageExperimentalRecipe(object):
@@ -44,25 +45,28 @@ class PackageExperimentalRecipe(object):
         forceDisable will not disable 'the external' recipe type used for build tools
         """
         self._Log = log
-        self.XmlSource = xmlExperimentalRecipe
-        self.Name = xmlExperimentalRecipe.Name # type: str
+        self.SysXmlSource = xmlExperimentalRecipe
+        self.Version = xmlExperimentalRecipe.Version    # type: Optional[Version]
+        self.ShortName = xmlExperimentalRecipe.ShortName
+        self.FullName = xmlExperimentalRecipe.FullName
+        self.AllowFind = xmlExperimentalRecipe.Find
 
-        determintedType = self.__DetermineRecipeType(xmlExperimentalRecipe)
-        self.Type = determintedType if not forceDisable or determintedType == RecipeType.External else RecipeType.Disabled
+        determinedType = self.__DetermineRecipeType(xmlExperimentalRecipe)
+        self.Type = determinedType if not forceDisable or determinedType == RecipeType.External else RecipeType.Disabled
         self.Pipeline = xmlExperimentalRecipe.Pipeline if self.Type == RecipeType.Build else None
         self.ValidateInstallation = xmlExperimentalRecipe.ValidateInstallation if self.Type != RecipeType.Disabled else None
         self.IsLocalSourceBuild = False
         if (self.Pipeline is not None and len(self.Pipeline.CommandList) > 0 and
-            self.Pipeline.CommandList[0].CommandType == BuildRecipePipelineCommand.Source):
+                self.Pipeline.CommandList[0].CommandType == BuildRecipePipelineCommand.Source):
             self.IsLocalSourceBuild = True
 
         # The installation path of the package
         self.ResolvedInstallLocation = None  # type: Optional[ResolvedPath]
 
         if self.Type == RecipeType.Undefined:
-            log.DoPrintWarning("No installation or validation available for package '{0}' recipe '{1}'".format(packageName, self.Name))
+            log.DoPrintWarning("No installation or validation available for package '{0}' recipe '{1}'".format(packageName, self.FullName))
         if self.ValidateInstallation is None and self.Type != RecipeType.Disabled:
-            log.DoPrintWarning("No installation validation available for package '{0}' recipe '{1}'".format(packageName, self.Name))
+            log.DoPrintWarning("No installation validation available for package '{0}' recipe '{1}'".format(packageName, self.FullName))
         if forceDisable and log.Verbosity >= 4:
             if self.Type == RecipeType.Disabled:
                 log.LogPrint("  - Force disabling recipe for package {0}".format(packageName))
@@ -78,5 +82,3 @@ class PackageExperimentalRecipe(object):
             return RecipeType.External
         return RecipeType.Undefined
         #raise Exception("Could not determine recipe type of recipe '{0}'".format(xmlExperimentalRecipe.Name))
-
-

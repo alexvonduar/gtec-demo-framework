@@ -36,7 +36,6 @@
 #include <FslUtil/OpenGLES3/GLValues.hpp>
 #include <GLES3/gl3.h>
 #include <FslBase/Attributes.hpp>
-#include <FslBase/Noncopyable.hpp>
 #include <string>
 
 namespace Fsl
@@ -112,7 +111,7 @@ namespace Fsl
 
       //! @brief Get the gl handle associated with the shader.
       //! @return the handle or GLValues::INVALID_HANDLE if the buffer is unallocated.
-      FSL_ATTR_DEPRECATED GLuint GetHandle() const
+      [[deprecated("use one of the other overloads instead")]] GLuint GetHandle() const
       {
         return Get();
       }

@@ -36,23 +36,42 @@
 #include <FslNativeWindow/EGL/NativeEGLSetup.hpp>
 #include <FslNativeWindow/Platform/PlatformNativeWindowSystemTypes.hpp>
 
+
+#ifdef _WIN32
+#pragma warning(push)
+// Disable the warning about inheritance via dominance
+#pragma warning(disable : 4250)
+#endif
+
 namespace Fsl
 {
+  struct PxPoint2;
+
+  namespace EGLNativeWindowHelper
+  {
+    inline NativeEGLSetup ToNativeEGLSetup(const PlatformNativeWindowAllocationParams* const pPlatformCustomWindowAllocationParams)
+    {
+      const auto* const pNativeEglSetup = dynamic_cast<const NativeEGLSetup*>(pPlatformCustomWindowAllocationParams);
+      if (pNativeEglSetup == nullptr)
+      {
+        throw NotSupportedException("NativeEGLSetup pointer expected");
+      }
+      return *pNativeEglSetup;
+    }
+  }
+
   template <typename TNativeWindow>
   class EGLNativeWindowTemplate
     : public virtual IEGLNativeWindow
     , public TNativeWindow
   {
+    NativeEGLSetup m_nativeSetup;
   public:
     EGLNativeWindowTemplate(const NativeWindowSetup& nativeWindowSetup, const PlatformNativeWindowParams& platformWindowParams,
                             const PlatformNativeWindowAllocationParams* const pPlatformCustomWindowAllocationParams)
       : TNativeWindow(nativeWindowSetup, platformWindowParams, pPlatformCustomWindowAllocationParams)
+      , m_nativeSetup(EGLNativeWindowHelper::ToNativeEGLSetup(pPlatformCustomWindowAllocationParams))
     {
-      const auto pNativeEglSetup = dynamic_cast<const NativeEGLSetup*>(pPlatformCustomWindowAllocationParams);
-      if (pNativeEglSetup == nullptr)
-      {
-        throw NotSupportedException("NativeEGLSetup pointer expected");
-      }
     }
 
     EGLNativeWindowType GetWindowType() const override
@@ -60,23 +79,27 @@ namespace Fsl
       return reinterpret_cast<EGLNativeWindowType>(TNativeWindow::GetPlatformWindow());
     }
 
-    // Get rid of the inheritance via dominance warning
-    bool TryGetDPI(Vector2& rDPI) const override
-    {
-      return TNativeWindow::TryGetDPI(rDPI);
-    }
-
-    // Get rid of the inheritance via dominance warning
-    bool TryGetSize(Point2& rSize) const override
-    {
-      return TNativeWindow::TryGetSize(rSize);
-    }
-
     bool TryCaptureMouse(const bool enableCapture) override
     {
       return TNativeWindow::TryCaptureMouse(enableCapture);
     }
+
+  protected:
+    // Get rid of the inheritance via dominance warning
+    bool TryGetNativeSize(PxPoint2& rSize) const final
+    {
+      return TNativeWindow::TryGetNativeSize(rSize);
+    }
+
+    const NativeEGLSetup& GetNativeSetup() const
+    {
+      return m_nativeSetup;
+    }
   };
 }
+
+#ifdef _WIN32
+#pragma warning(pop)
+#endif
 
 #endif

@@ -29,7 +29,7 @@
  *
  ****************************************************************************************************************************************************/
 
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslDemoApp/Base/Service/Options/IOptions.hpp>
 #include <FslDemoApp/Base/Service/Options/Options.hpp>
 #include <FslDemoApp/OpenGLES3/Setup/RegisterDemoApp.hpp>
@@ -39,6 +39,7 @@
 #include "HDR04_HDRFramebuffer.hpp"
 #include "OptionParserEx.hpp"
 #include "SharedData.hpp"
+#include <array>
 
 // If our EGL header don't have these magic values defined we define em here since we dont use them unless the extension is detected.
 // The values are defined here:
@@ -47,15 +48,19 @@
 
 #ifndef EGL_GL_COLORSPACE
 #ifdef EGL_GL_COLORSPACE_KHR
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define EGL_GL_COLORSPACE EGL_GL_COLORSPACE_KHR
 #else
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define EGL_GL_COLORSPACE 0x309D
 #endif
 #endif
 #ifndef EGL_GL_COLORSPACE_BT2020_LINEAR_EXT
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define EGL_GL_COLORSPACE_BT2020_LINEAR_EXT 0x333F
 #endif
 #ifndef EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT 0x3350
 #endif
 
@@ -65,13 +70,13 @@ namespace Fsl
   namespace
   {
     // Custom EGL config (these will per default overwrite the custom settings. However a exact EGL config can be used)
-    const EGLint g_eglConfigAttribs[] = {
+    const std::array<EGLint, (4 * 2) + 1> g_eglConfigAttribs = {
       // Prefer a EGL config with more than eight bits per channel (HDR)
       EGL_RED_SIZE, 10, EGL_GREEN_SIZE, 10, EGL_BLUE_SIZE, 10, EGL_COLOR_BUFFER_TYPE, EGL_RGB_BUFFER, EGL_NONE};
 
-    const EGLint g_eglCreateWindowAttribs_bt2020[] = {EGL_GL_COLORSPACE, EGL_GL_COLORSPACE_BT2020_LINEAR_EXT, EGL_NONE};
+    const std::array<EGLint, 3> g_eglCreateWindowAttribs_bt2020 = {EGL_GL_COLORSPACE, EGL_GL_COLORSPACE_BT2020_LINEAR_EXT, EGL_NONE};
 
-    const EGLint g_eglCreateWindowAttribs_scrgb[] = {EGL_GL_COLORSPACE, EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT, EGL_NONE};
+    const std::array<EGLint, 3> g_eglCreateWindowAttribs_scrgb = {EGL_GL_COLORSPACE, EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT, EGL_NONE};
 
 
     const EGLint* GetCreateWindowSurfaceAttribs(const EGLDisplay display, const DemoAppHostCreateWindowSurfaceInfoEGL& createInfo,
@@ -80,33 +85,33 @@ namespace Fsl
       const auto userTagEx = std::dynamic_pointer_cast<SharedData>(userTag);
       if (!userTagEx)
       {
-        FSLLOG("Expected user tag missing");
+        FSLLOG3_INFO("Expected user tag missing");
         return nullptr;
       }
 
       const bool hasExtensionBT2020 = EGLUtil::HasExtension(display, "EGL_EXT_gl_colorspace_bt2020_linear");
       const bool hasExtensionSCRGB = EGLUtil::HasExtension(display, "EGL_EXT_gl_colorspace_scrgb_linear");
 
-      FSLLOG("Config HDR compatible:               " << createInfo.IsConfigAttribsHDRCompatible);
+      FSLLOG3_INFO("Config HDR compatible:               {}", createInfo.IsConfigAttribsHDRCompatible);
       if (createInfo.IsConfigAttribsHDRCompatible)
       {
-        FSLLOG("Display HDR compatible:              " << createInfo.IsDisplayHDRCompatible);
+        FSLLOG3_INFO("Display HDR compatible:              {}", createInfo.IsDisplayHDRCompatible);
       }
       else
       {
-        FSLLOG("Display HDR compatible:              not checked");
+        FSLLOG3_INFO("Display HDR compatible:              not checked");
       }
-      FSLLOG("EGL_EXT_gl_colorspace_bt2020_linear: " << hasExtensionBT2020);
-      FSLLOG("EGL_EXT_gl_colorspace_scrgb_linear:  " << hasExtensionSCRGB);
+      FSLLOG3_INFO("EGL_EXT_gl_colorspace_bt2020_linear: {}", hasExtensionBT2020);
+      FSLLOG3_INFO("EGL_EXT_gl_colorspace_scrgb_linear: {}", hasExtensionSCRGB);
 
       Options optionsService(createInfo.TheServiceProvider.Get<IOptions>());
       const auto options = optionsService.GetOptionParser<OptionParserEx>();
       const auto disableDisplayHDRCheck = options->IsDisplayHDRCheckDisabled();
       bool IsDisplayHDRCompatible = disableDisplayHDRCheck ? true : createInfo.IsDisplayHDRCompatible;
-      FSLLOG_WARNING_IF(disableDisplayHDRCheck, "Display HDR check disabled from command line");
+      FSLLOG3_WARNING_IF(disableDisplayHDRCheck, "Display HDR check disabled from command line");
       if (!IsDisplayHDRCompatible || !createInfo.IsConfigAttribsHDRCompatible)
       {
-        FSLLOG("HDRFramebuffer not supported");
+        FSLLOG3_INFO("HDRFramebuffer not supported");
         return nullptr;
       }
 
@@ -114,16 +119,16 @@ namespace Fsl
       if (hasExtensionBT2020)
       {
         userTagEx->HDRFramebufferEnabled = true;
-        FSLLOG("EGL_EXT_gl_colorspace_bt2020_linear detected, requesting EGL_GL_COLORSPACE=EGL_GL_COLORSPACE_BT2020_LINEAR_EXT");
-        return g_eglCreateWindowAttribs_bt2020;
+        FSLLOG3_INFO("EGL_EXT_gl_colorspace_bt2020_linear detected, requesting EGL_GL_COLORSPACE=EGL_GL_COLORSPACE_BT2020_LINEAR_EXT");
+        return g_eglCreateWindowAttribs_bt2020.data();
       }
 
       // Since the extension 'EGL_EXT_gl_colorspace_bt2020_linear' is optional we check for it
       if (hasExtensionSCRGB)
       {
         userTagEx->HDRFramebufferEnabled = true;
-        FSLLOG("EGL_EXT_gl_colorspace_scrgb_linear detected, requesting EGL_GL_COLORSPACE=EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT");
-        return g_eglCreateWindowAttribs_scrgb;
+        FSLLOG3_INFO("EGL_EXT_gl_colorspace_scrgb_linear detected, requesting EGL_GL_COLORSPACE=EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT");
+        return g_eglCreateWindowAttribs_scrgb.data();
       }
       return nullptr;
     }
@@ -135,7 +140,7 @@ namespace Fsl
   {
     const auto sharedData = std::make_shared<SharedData>();
 
-    DemoAppHostConfigEGL config(g_eglConfigAttribs, ConfigControl::Default);
+    DemoAppHostConfigEGL config(g_eglConfigAttribs.data(), ConfigControl::Default);
     config.SetUserTag(sharedData);
     // Hook into the system and allow us to customize the attribs passed to eglCreateWindowSurface at runtime
     // depending on the availability of extensions

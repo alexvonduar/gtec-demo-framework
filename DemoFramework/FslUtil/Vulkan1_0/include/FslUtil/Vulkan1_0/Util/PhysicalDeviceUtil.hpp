@@ -44,6 +44,11 @@ namespace Fsl
   {
     namespace PhysicalDeviceUtil
     {
+      bool IsDeviceExtensionsAvailable(const VkPhysicalDevice device, const uint32_t extensionCount, const char* const* enabledExtensionNames,
+                                       const char* const pszLayerName = nullptr);
+
+      std::vector<VkExtensionProperties> EnumerateDeviceExtensionProperties(const VkPhysicalDevice device, const char* const pszLayerName = nullptr);
+
       //! vkGetPhysicalDeviceFormatProperties
       inline VkFormatProperties GetPhysicalDeviceFormatProperties(const VkPhysicalDevice physicalDevice, const VkFormat format)
       {
@@ -112,13 +117,19 @@ namespace Fsl
       }
 
       //! @brief Find a VK_IMAGE_TILING_OPTIMAL depth format
-      inline VkFormat FindDepthFormat(const VkPhysicalDevice physicalDevice)
+      inline VkFormat FindDepthFormat(const VkPhysicalDevice physicalDevice, const bool enableStencil)
       {
         assert(physicalDevice != VK_NULL_HANDLE);
-        std::array<VkFormat, 5> depthFormats = {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT,
-                                                VK_FORMAT_D16_UNORM_S8_UINT, VK_FORMAT_D16_UNORM};
+        if (!enableStencil)
+        {
+          constexpr std::array<VkFormat, 2> depthFormats = {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D16_UNORM};
+          return PhysicalDeviceUtil::FindSupportedFormat(physicalDevice, depthFormats, VK_IMAGE_TILING_OPTIMAL,
+                                                         VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+        }
 
-        return PhysicalDeviceUtil::FindSupportedFormat(physicalDevice, depthFormats, VK_IMAGE_TILING_OPTIMAL,
+        constexpr std::array<VkFormat, 3> depthFormatsWithS = {VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT,
+                                                               VK_FORMAT_D16_UNORM_S8_UINT};
+        return PhysicalDeviceUtil::FindSupportedFormat(physicalDevice, depthFormatsWithS, VK_IMAGE_TILING_OPTIMAL,
                                                        VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
       }
     }

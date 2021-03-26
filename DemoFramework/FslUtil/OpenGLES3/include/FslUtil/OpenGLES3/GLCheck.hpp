@@ -36,14 +36,15 @@
 #include <FslUtil/OpenGLES3/CheckError.hpp>
 #include <FslUtil/OpenGLES3/DebugStrings.hpp>
 #include <FslUtil/OpenGLES3/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
-#include <sstream>
+#include <FslBase/Log/Log3Fmt.hpp>
 
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define GL_CHECK_FOR_ERROR() Fsl::GLES3::CheckError(glGetError(), __FILE__, __LINE__)
 
 
 // Call method X and then check glGetError to see if a error occurred and if it did then throw a Fsl::GLESGraphicsException
 // TODO: implement a better version of this macro as it can give unexpected behavior
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define GL_CHECK(X)                                               \
   X;                                                              \
   {                                                               \
@@ -53,28 +54,30 @@
 
 // Call method X and then check glGetError to see if a error occurred and if it did then call 'return'
 // TODO: implement a better version of this macro as it can give unexpected behavior
-#define GL_ON_ERROR_LOG_AND_RETURN(X)                                                                                                      \
-  X;                                                                                                                                       \
-  {                                                                                                                                        \
-    GLenum rESULT = glGetError();                                                                                                          \
-    if (rESULT != GL_NO_ERROR)                                                                                                             \
-    {                                                                                                                                      \
-      FSLLOG_ERROR(#X << " failed with error code " << Fsl::GLES3::Debug::ErrorCodeToString(static_cast<GLenum>(rESULT)) << " (" << rESULT \
-                      << ") at " << __FILE__ << "(" << __LINE__ << ")");                                                                   \
-      return;                                                                                                                              \
-    }                                                                                                                                      \
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define GL_ON_ERROR_LOG_AND_RETURN(X)                                                                                                             \
+  X;                                                                                                                                              \
+  {                                                                                                                                               \
+    GLenum rESULT = glGetError();                                                                                                                 \
+    if (rESULT != GL_NO_ERROR)                                                                                                                    \
+    {                                                                                                                                             \
+      FSLLOG3_ERROR("{} failed with error code {} ({}) at {}({})", #X, Fsl::GLES3::Debug::ErrorCodeToString(static_cast<GLenum>(rESULT)), rESULT, \
+                    __FILE__, __LINE__);                                                                                                          \
+      return;                                                                                                                                     \
+    }                                                                                                                                             \
   }
 
 // TODO: implement a better version of this macro as it can give unexpected behavior
-#define GL_LOG_ERROR(X)                                                                                                                    \
-  X;                                                                                                                                       \
-  {                                                                                                                                        \
-    GLenum rESULT = glGetError();                                                                                                          \
-    if (rESULT != GL_NO_ERROR)                                                                                                             \
-    {                                                                                                                                      \
-      FSLLOG_ERROR(#X << " failed with error code " << Fsl::GLES3::Debug::ErrorCodeToString(static_cast<GLenum>(rESULT)) << " (" << rESULT \
-                      << ") at " << __FILE__ << "(" << __LINE__ << ")");                                                                   \
-    }                                                                                                                                      \
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define GL_LOG_ERROR(X)                                                                                                                           \
+  X;                                                                                                                                              \
+  {                                                                                                                                               \
+    GLenum rESULT = glGetError();                                                                                                                 \
+    if (rESULT != GL_NO_ERROR)                                                                                                                    \
+    {                                                                                                                                             \
+      FSLLOG3_ERROR("{} failed with error code {} ({}) at {}({})", #X, Fsl::GLES3::Debug::ErrorCodeToString(static_cast<GLenum>(rESULT)), rESULT, \
+                    __FILE__, __LINE__);                                                                                                          \
+    }                                                                                                                                             \
   }
 
 

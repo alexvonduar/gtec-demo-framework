@@ -33,6 +33,8 @@
 
 // Make sure Common.hpp is the first include file (to make the error message as helpful as possible when disabled)
 #include <FslUtil/Vulkan1_0/Common.hpp>
+#include <FslBase/UncheckedNumericCast.hpp>
+#include <FslBase/Math/Pixel/PxSize2D.hpp>
 #include <RapidVulkan/Image.hpp>
 #include <vector>
 #include <vulkan/vulkan.h>
@@ -173,6 +175,17 @@ namespace Fsl
       {
         return m_mipLevels;
       }
+
+      VkExtent2D GetExtent2D() const
+      {
+        return VkExtent2D{m_extent.width, m_extent.height};
+      }
+
+      PxSize2D GetSize() const
+      {
+        return {UncheckedNumericCast<PxSize2D::value_type>(m_extent.width), UncheckedNumericCast<PxSize2D::value_type>(m_extent.height)};
+      }
+
 
       VkExtent3D GetExtent() const
       {

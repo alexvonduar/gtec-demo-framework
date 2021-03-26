@@ -2,7 +2,7 @@
 #****************************************************************************************************************************************************
 #* BSD 3-Clause License
 #*
-#* Copyright (c) 2014, Mana Battery
+#* Copyright (c) 2020, Mana Battery
 #* All rights reserved.
 #*
 #* Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -21,120 +21,9 @@
 #* EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #****************************************************************************************************************************************************
 
-import argparse
-import json
-import os
-from TPConvert.FormatPluginCSharp import FormatPluginCSharp
-from TPConvert.FormatPluginFslAtlas import FormatPluginFslAtlas
-from TPConvert.FormatPluginBinaryTA1 import FormatPluginBinaryTA1
-from TPConvert.FormatPluginBinaryTA2 import FormatPluginBinaryTA2
-from TPConvert.IOUtil import *
-from TPConvert.TexturePackerObjects import *
+from TPConvert import PythonVersionCheck
+PythonVersionCheck.CheckVersion()
 
-__g_verbosityLevel = 0
-__g_debugEnabled = False
-__g_allowDevelopmentPlugins = False
+from TPConvert.Main import MainApp
 
-
-def GetTitle():
-    return 'TPConvert V0.2.3 alpha'
-
-
-def ShowTitleIfNecessary():
-    global __g_verbosityLevel
-    if __g_verbosityLevel > 0:
-        print(GetTitle())
-
-
-def GetEntryByName(list, name):
-    for entry in list:
-        if entry.Name == name:
-            return entry
-    raise Exception("Unknown plugin '{0}'".format(name))
-
-
-def Process(formatPlugins, inputFilename, outputFilename, formatName):
-    if outputFilename == None:
-        outputFilename = GetFileNameWithoutExtension(inputFilename)
-
-    formatPlugin = GetEntryByName(formatPlugins, formatName)
-
-    # Read the json file and convert it into python objects
-    content = ReadBinaryFile(inputFilename)
-    jsonDict = json.loads(content)
-    atlas = TexturePackerAtlas(jsonDict)
-
-    formatPlugin.Process(atlas, outputFilename)
-
-
-def AddDefaultOptions(parser):
-    parser.add_argument('-v', '--verbosity', action='count', default=0, help='Set verbosity level')
-    parser.add_argument('--debug', action='store_true',  help='Enable script debugging')
-    parser.add_argument('--dev', action='store_true',  help='Allow plugins in development')
-
-
-def EarlyArgumentParser():
-    global __g_verbosityLevel
-    global __g_debugEnabled
-    global __g_allowDevelopmentPlugins
-    ### Parse the initial options this allows us to use the required debug and verbosity levels while
-    ### creating the actual command line argumnets.
-    try:
-        parser = argparse.ArgumentParser(add_help=False)
-        AddDefaultOptions(parser)
-        args, unknown = parser.parse_known_args()
-        __g_verbosityLevel = args.verbosity
-        __g_debugEnabled = True if args.debug else False;
-        __g_allowDevelopmentPlugins = True if args.dev else False;
-    except (Exception) as ex:
-        print("ERROR: {0}".format(ex.message))
-        if __g_debugEnabled:
-            raise
-        else:
-            return False
-    return True
-
-
-def GetPluginList(allowDevPlugins):
-    res = [ FormatPluginCSharp(), FormatPluginCSharp(True), FormatPluginFslAtlas(), FormatPluginBinaryTA1(), FormatPluginBinaryTA2()]
-    return res;
-
-
-def GetNames(list):
-    return [entry.Name for entry in list];
-
-
-def Main():
-    global __g_verbosityLevel
-    global __g_debugEnabled
-    global __g_allowDevelopmentPlugins
-
-    if not EarlyArgumentParser():
-        return
-
-    plugins = GetPluginList(__g_allowDevelopmentPlugins)
-
-    ### Add the main command line arguments
-    parser = argparse.ArgumentParser(description='Convert TexturePacker JSON(array) files into a custom native format.')
-    AddDefaultOptions(parser)
-    parser.add_argument('-f', '--format', default=plugins[0].Name,  help='Select format {0}'.format(", ".join(GetNames(plugins))))
-    parser.add_argument("inputFile", help="the name of the input file")
-    parser.add_argument("outputFile", nargs='?', default=None, help="the name of the output file")
-
-    try:
-        args = parser.parse_args()
-        Process(plugins, args.inputFile, args.outputFile, args.format)
-    except (IOError) as ex:
-        ShowTitleIfNecessary()
-        print("ERROR: {0}".format(ex.strerror))
-        if __g_debugEnabled:
-            raise
-    except (Exception) as ex:
-        ShowTitleIfNecessary()
-        print("ERROR: {0}".format(ex))
-        if __g_debugEnabled:
-            raise
-    return
-
-
-Main();
+MainApp.Run()

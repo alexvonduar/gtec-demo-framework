@@ -44,7 +44,7 @@ namespace Fsl
   {
     namespace
     {
-      inline void ValidateInsideMappedRange(const Span<VkDeviceSize>& mappedSpan, const VkDeviceSize offset, const VkDeviceSize size)
+      inline void ValidateInsideMappedRange(const SpanRange<VkDeviceSize>& mappedSpan, const VkDeviceSize offset, const VkDeviceSize size)
       {
         const auto mappedEnd = mappedSpan.End();
         if (offset < mappedSpan.Start)
@@ -96,7 +96,7 @@ namespace Fsl
 
       if (m_isMapped)
       {
-        // FSLBASICLOG_DEBUG_WARNING("Resetting DeviceMemory that is mapped, forcing unmap.");
+        // FSLLOG3_DEBUG_WARNING("Resetting DeviceMemory that is mapped, forcing unmap.");
         DoUnmapMemory();
       }
 
@@ -193,16 +193,16 @@ namespace Fsl
 
       if (IsMapped())
       {
-        FSLBASICLOG_DEBUG_WARNING("Mapping already mapped memory");
+        FSLLOG3_DEBUG_WARNING("Mapping already mapped memory");
         DoUnmapMemory();
       }
 
       // Since we want to ensure that the m_pData is left untouched on error we use a local variable as a intermediary
-      void* pData;
+      void* pData = nullptr;
       RAPIDVULKAN_CHECK(vkMapMemory(m_deviceMemory.GetDevice(), m_deviceMemory.Get(), offset, size, flags, &pData));
       m_pData = pData;
       m_isMapped = VK_TRUE;
-      m_mappedSpan = Span<VkDeviceSize>(offset, actualSize);
+      m_mappedSpan = SpanRange<VkDeviceSize>(offset, actualSize);
       return m_pData;
     }
 
@@ -264,20 +264,21 @@ namespace Fsl
     }
 
 
-    void VUDeviceMemory::UnmapMemory()
+    void VUDeviceMemory::UnmapMemory() noexcept
     {
       if (!IsValid())
       {
-        throw UsageErrorException("Device memory is invalid");
+        FSLLOG3_DEBUG_WARNING("Device memory is not valid, call ignored.");
+        return;
       }
       if (!m_isMapped)
       {
-        FSLBASICLOG_DEBUG_WARNING("Device memory is not mapped, call ignored.");
+        FSLLOG3_DEBUG_WARNING("Device memory is not mapped, call ignored.");
         return;
       }
       if ((m_memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0u)
       {
-        FSLBASICLOG_DEBUG_WARNING("Can't unmap memory that is not host visible, call ignored");
+        FSLLOG3_DEBUG_WARNING("Can't unmap memory that is not host visible, call ignored");
         return;
       }
 

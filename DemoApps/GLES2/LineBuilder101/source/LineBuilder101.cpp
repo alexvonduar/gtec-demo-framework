@@ -30,7 +30,7 @@
  ****************************************************************************************************************************************************/
 
 #include "LineBuilder101.hpp"
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslUtil/OpenGLES2/Exceptions.hpp>
 #include <FslUtil/OpenGLES2/GLCheck.hpp>
 #include <GLES2/gl2.h>
@@ -55,7 +55,7 @@ namespace Fsl
 
   void LineBuilder101::Update(const DemoTime& demoTime)
   {
-    m_example.Update(demoTime, GetScreenResolution());
+    m_example.Update(demoTime, GetWindowSizePx());
 
     m_vertexUboData.MatViewProjection = m_example.GetViewMatrix() * m_example.GetProjectionMatrix();
   }

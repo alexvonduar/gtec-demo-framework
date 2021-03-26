@@ -47,7 +47,7 @@ namespace Fsl
       collection_type m_children;
 
     public:
-      SimpleLayout(const std::shared_ptr<BaseWindowContext>& context);
+      explicit SimpleLayout(const std::shared_ptr<BaseWindowContext>& context);
       void WinInit() override;
 
       void ClearChildren() override
@@ -70,23 +70,28 @@ namespace Fsl
         return m_children.size();
       }
 
+      bool ContainsChild(const std::shared_ptr<BaseWindow>& window) const
+      {
+        return m_children.Contains(window);
+      }
+
     protected:
-      inline bool empty() const
+      inline bool empty() const noexcept
       {
         return m_children.empty();
       }
 
-      inline collection_type::queue_type::size_type size() const
+      inline collection_type::queue_type::size_type size() const noexcept
       {
         return m_children.size();
       }
 
-      inline collection_type::queue_type::const_iterator begin() const
+      inline collection_type::queue_type::const_iterator begin() const noexcept
       {
         return m_children.begin();
       }
 
-      inline collection_type::queue_type::const_iterator end() const
+      inline collection_type::queue_type::const_iterator end() const noexcept
       {
         return m_children.end();
       }

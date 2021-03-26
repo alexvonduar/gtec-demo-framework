@@ -30,13 +30,17 @@
  ****************************************************************************************************************************************************/
 
 #include "Window101.hpp"
+#include <FslBase/Exceptions.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
+#include <FslBase/Log/Math/Pixel/FmtPxExtent2D.hpp>
+#include <FslBase/Log/Math/Pixel/FmtPxPoint2.hpp>
+#include <FslBase/Log/Math/FmtPoint2.hpp>
+#include <FslBase/Log/Math/FmtVector2.hpp>
+#include <FslBase/Math/Point2.hpp>
+#include <FslBase/Math/Vector2.hpp>
 #include <FslDemoHost/Base/Service/WindowHost/IWindowHostInfo.hpp>
 #include <FslNativeWindow/Base/INativeWindow.hpp>
 #include <FslNativeWindow/Base/INativeWindowSystem.hpp>
-#include <FslBase/Log/Log.hpp>
-#include <FslBase/Exceptions.hpp>
-#include <FslBase/Math/Point2.hpp>
-#include <FslBase/Math/Vector2.hpp>
 
 namespace Fsl
 {
@@ -52,36 +56,51 @@ namespace Fsl
     auto windows = windowHostInfo->GetWindows();
 
     // Query them for information directly
-    FSLLOG("Active windows: " << windows.size());
+    FSLLOG3_INFO("Active windows: {}", windows.size());
     for (std::size_t i = 0; i < windows.size(); ++i)
     {
       auto window = windows[i].lock();
-      FSLLOG("Window #" << i);
+      FSLLOG3_INFO("Window #{}", i);
       if (window)
       {
-        Point2 size;
-        if (window->TryGetSize(size))
+        PxExtent2D extent;
+        if (window->TryGetExtent(extent))
         {
-          FSLLOG("- Size: " << size.X << "x" << size.Y);
+          FSLLOG3_INFO("- Extent:     {}", extent);
         }
         else
         {
-          FSLLOG("- Size: Failed");
+          FSLLOG3_INFO("- Extent:     Failed");
         }
 
         Vector2 dpi;
-        if (window->TryGetDPI(dpi))
+        if (window->TryGetDpi(dpi))
         {
-          FSLLOG("- DPI:  " << dpi.X << "," << dpi.Y);
+          FSLLOG3_INFO("- DPI:        {}", dpi);
         }
         else
         {
-          FSLLOG("- DPI:  Failed");
+          FSLLOG3_INFO("- DPI:        Failed");
         }
+
+        uint32_t densityDpi = 0;
+        if (window->TryGetDensityDpi(densityDpi))
+        {
+          FSLLOG3_INFO("- DensityDPI: {}", densityDpi);
+        }
+        else
+        {
+          FSLLOG3_INFO("- DensityDPI: Failed");
+        }
+
+        auto windowMetrics = window->GetWindowMetrics();
+        FSLLOG3_INFO("- WindowMetrics.ExactDpi: {}", windowMetrics.ExactDpi);
+        FSLLOG3_INFO("- WindowMetrics.DensityDpi: {}", windowMetrics.DensityDpi);
+        FSLLOG3_INFO("- WindowMetrics.DensityScaleFactor: {}", windowMetrics.DensityScaleFactor);
       }
       else
       {
-        FSLLOG("- has been closed");
+        FSLLOG3_INFO("- has been closed");
       }
     }
   }
@@ -90,12 +109,12 @@ namespace Fsl
   Window101::~Window101() = default;
 
 
-  void Window101::Update(const DemoTime& demoTime)
+  void Window101::Update(const DemoTime& /*demoTime*/)
   {
   }
 
 
-  void Window101::Draw(const DemoTime& demoTime)
+  void Window101::Draw(const DemoTime& /*demoTime*/)
   {
   }
 }

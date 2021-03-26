@@ -31,8 +31,9 @@
 
 #include <FslBase/Getopt/OptionBaseValues.hpp>
 #include <FslBase/String/StringParseUtil.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslDemoHost/Base/ADemoHostOptionParser.hpp>
+#include <array>
 #include <cstdlib>
 #include <cstring>
 
@@ -47,14 +48,17 @@ namespace Fsl
       enum Enum
       {
         Window = DEMO_HOST_OPTION_BASE_INTERNAL,
-        DisplayId
+        DisplayId,
+        ActualDpi,
+        DensityDpi,
       };
     };
   }
 
 
-  ADemoHostOptionParser::ADemoHostOptionParser()
+  ADemoHostOptionParser::ADemoHostOptionParser(const DemoHostOptionConfig config)
     : m_nativeWindowConfig(WindowMode::Fullscreen, Rectangle())
+    , m_demoHostOptionConfig(config)
     , m_userControlledWindow(false)
   {
   }
@@ -62,38 +66,61 @@ namespace Fsl
 
   void ADemoHostOptionParser::ArgumentSetup(std::deque<Option>& rOptions)
   {
-    rOptions.emplace_back("Window", OptionArgument::OptionRequired, CommandId::Window, "Window mode [left,top,width,height]", OptionGroup::Host);
-    rOptions.emplace_back("DisplayId", OptionArgument::OptionRequired, CommandId::DisplayId, "DisplayId <number>", OptionGroup::Host);
+    if (m_demoHostOptionConfig == DemoHostOptionConfig::WindowApp)
+    {
+      rOptions.emplace_back("Window", OptionArgument::OptionRequired, CommandId::Window, "Window mode [left,top,width,height]", OptionGroup::Host);
+      rOptions.emplace_back("DisplayId", OptionArgument::OptionRequired, CommandId::DisplayId, "DisplayId <number>", OptionGroup::Host);
+      rOptions.emplace_back("ActualDpi", OptionArgument::OptionRequired, CommandId::ActualDpi,
+                            "ActualDpi [x,y] Override the actual dpi reported by the native window", OptionGroup::Host);
+      rOptions.emplace_back("DensityDpi", OptionArgument::OptionRequired, CommandId::DensityDpi,
+                            "DensityDpi <number> Override the density dpi reported by the native window", OptionGroup::Host);
+    }
   }
 
 
-  OptionParseResult::Enum ADemoHostOptionParser::Parse(const int32_t cmdId, const char* const pszOptArg)
+  OptionParseResult ADemoHostOptionParser::Parse(const int32_t cmdId, const StringViewLite& strOptArg)
   {
     Rectangle rectValue;
-    int32_t intValue;
-    switch (cmdId)
+    int32_t intValue = 0;
+    uint16_t uintValue = 0;
+    if (m_demoHostOptionConfig == DemoHostOptionConfig::WindowApp)
     {
-    case CommandId::Window:
-      if (std::strcmp(pszOptArg, "[]") != 0)
+      switch (cmdId)
       {
-        StringParseUtil::Parse(rectValue, pszOptArg);
-        m_nativeWindowConfig.SetWindowMode(WindowMode::Window);
-        m_nativeWindowConfig.SetWindowRectangle(rectValue);
-        m_userControlledWindow = true;
-      }
-      else
+      case CommandId::Window:
+        if (strOptArg != "[]")
+        {
+          StringParseUtil::Parse(rectValue, strOptArg);
+          m_nativeWindowConfig.SetWindowMode(WindowMode::Window);
+          m_nativeWindowConfig.SetWindowRectangle(rectValue);
+          m_userControlledWindow = true;
+        }
+        else
+        {
+          m_nativeWindowConfig.SetWindowMode(WindowMode::Fullscreen);
+          m_userControlledWindow = true;
+        }
+        return OptionParseResult::Parsed;
+      case CommandId::DisplayId:
+        StringParseUtil::Parse(intValue, strOptArg);
+        m_nativeWindowConfig.SetDisplayId(intValue);
+        return OptionParseResult::Parsed;
+      case CommandId::DensityDpi:
+        StringParseUtil::Parse(uintValue, strOptArg);
+        m_nativeWindowConfig.SetForcedDensityDpi(Optional<uint32_t>(uintValue));
+        return OptionParseResult::Parsed;
+      case CommandId::ActualDpi:
       {
-        m_nativeWindowConfig.SetWindowMode(WindowMode::Fullscreen);
-        m_userControlledWindow = true;
+        Point2U value;
+        StringParseUtil::Parse(value, strOptArg);
+        m_nativeWindowConfig.SetForcedActualDpi(Optional<Point2U>(value));
+        return OptionParseResult::Parsed;
       }
-      return OptionParseResult::Parsed;
-    case CommandId::DisplayId:
-      StringParseUtil::Parse(intValue, pszOptArg);
-      m_nativeWindowConfig.SetDisplayId(intValue);
-      return OptionParseResult::Parsed;
-    default:
-      return OptionParseResult::NotHandled;
+      default:
+        break;
+      }
     }
+    return OptionParseResult::NotHandled;
   }
 
 
@@ -106,14 +133,14 @@ namespace Fsl
       // Disable the warning about unsafe method under windows (unfortunately visual studio does not remove this warning for C++11)
 #pragma warning(disable : 4996)
 #endif
-      auto psz = std::getenv(ENV_PREFERRED_WINDOW_RESOLUTION);
+      auto* psz = std::getenv(ENV_PREFERRED_WINDOW_RESOLUTION);
 #ifdef _WIN32
 #pragma warning(pop)
 #endif
 
       if (psz != nullptr)
       {
-        FSLLOG("Using environment variable '" << ENV_PREFERRED_WINDOW_RESOLUTION << "' = '" << psz << "' to set window resolution.");
+        FSLLOG3_INFO("Using environment variable '{}' = '{}' to set window resolution.", ENV_PREFERRED_WINDOW_RESOLUTION, psz);
         Rectangle rectValue;
         StringParseUtil::Parse(rectValue, psz);
         m_nativeWindowConfig.SetWindowMode(WindowMode::Window);

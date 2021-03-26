@@ -30,7 +30,7 @@
  ****************************************************************************************************************************************************/
 
 #include <FslBase/BasicTypes.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/String/StringParseUtil.hpp>
 #include <FslBase/Getopt/OptionBaseValues.hpp>
 #include "InputEventsOptionParser.hpp"
@@ -79,7 +79,7 @@ namespace Fsl
   }
 
 
-  OptionParseResult::Enum InputEventsOptionParser::OnParse(const int32_t cmdId, const char* const pszOptArg)
+  OptionParseResult InputEventsOptionParser::OnParse(const int32_t cmdId, const StringViewLite& strOptArg)
   {
     switch (cmdId)
     {
@@ -87,13 +87,13 @@ namespace Fsl
       m_bTestASet = true;
       return OptionParseResult::Parsed;
     case CommandId::TestB:
-      StringParseUtil::Parse(m_testBValue, pszOptArg);
+      StringParseUtil::Parse(m_testBValue, strOptArg);
       return OptionParseResult::Parsed;
     case CommandId::TestC:
-      StringParseUtil::Parse(m_testCValue, pszOptArg);
+      StringParseUtil::Parse(m_testCValue, strOptArg);
       return OptionParseResult::Parsed;
     case CommandId::TestD:
-      FSLLOG("This option always fails parsing :)")
+      FSLLOG3_INFO("This option always fails parsing :)")
       return OptionParseResult::Failed;
     case CommandId::TestE:
       return OptionParseResult::Parsed;
@@ -114,7 +114,7 @@ namespace Fsl
 
     if (!m_bContinueRunning)
     {
-      FSLLOG("Forced exit")
+      FSLLOG3_INFO("Forced exit")
     }
 
     // If you return false, the app exits.

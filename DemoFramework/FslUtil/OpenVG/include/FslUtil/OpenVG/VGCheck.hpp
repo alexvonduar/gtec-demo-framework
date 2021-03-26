@@ -35,16 +35,18 @@
 #include <FslUtil/OpenVG/Common.hpp>
 #include <FslUtil/OpenVG/Util.hpp>
 #include <VG/openvg.h>
-#include <sstream>
 
 
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define FSLGRAPHICSOPENVG_CHECK(X) Fsl::OpenVG::Util::Check((X), #X, __FILE__, __LINE__)
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define FSLGRAPHICSOPENVG_CHECK2(X, mESSAGE) Fsl::OpenVG::Util::Check((X), (mESSAGE), __FILE__, __LINE__)
 
 
 // Check vgGetError to see if a error occurred and if it did then throw a Fsl::GraphicsException
 // WARNING: Using this macro in a if statement without {} causes the error check part of this macro to be executed anyway.
 // It also causes a compile error if trying to use a single line if else statements since it unwraps to two lines not one!
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define FSLGRAPHICSOPENVG_CHECK_FOR_ERROR()                                                            \
   {                                                                                                    \
     VGErrorCode VGeRROR = vgGetError();                                                                \
@@ -58,15 +60,16 @@
 // Beware that using this macro in a if statement without {} causes the error check part of this macro to be executed anyway
 // WARNING: Using this macro in a if statement without {} causes the error check part of this macro to be executed anyway.
 // It also causes a compile error if trying to use a single line if else statements since it unwraps to two lines not one!
-#define FSLGRAPHICSOPENVG_ON_ERROR_LOG_AND_RETURN(X)                                   \
-  {                                                                                    \
-    (X);                                                                               \
-    VGErrorCode VGeRROR = vgGetError();                                                \
-    if (VGeRROR != VG_NO_ERROR)                                                        \
-    {                                                                                  \
-      FSLLOG_ERROR(Fsl::OpenVG::Util::ToNiceMessage(#X, VGeRROR, __FILE__, __LINE__)); \
-      return;                                                                          \
-    }                                                                                  \
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FSLGRAPHICSOPENVG_ON_ERROR_LOG_AND_RETURN(X)                                    \
+  {                                                                                     \
+    (X);                                                                                \
+    VGErrorCode VGeRROR = vgGetError();                                                 \
+    if (VGeRROR != VG_NO_ERROR)                                                         \
+    {                                                                                   \
+      FSLLOG3_ERROR(Fsl::OpenVG::Util::ToNiceMessage(#X, VGeRROR, __FILE__, __LINE__)); \
+      return;                                                                           \
+    }                                                                                   \
   }
 
 

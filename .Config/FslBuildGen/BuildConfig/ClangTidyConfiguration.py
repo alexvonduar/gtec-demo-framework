@@ -38,11 +38,14 @@ from FslBuildGen.BuildConfig.ClangConfiguration import ClangConfiguration
 from FslBuildGen.BuildConfig.ClangTidyPlatform import ClangTidyPlatform
 
 class ClangTidyConfiguration(ClangConfiguration):
-    def __init__(self, fileExtensions: List[str], recipePackageName: str, platforms: List[ClangTidyPlatform]) -> None:
+    def __init__(self, fileExtensions: List[str], clangRecipePackageName: str, clangTidyRecipePackageName: str,
+                 ninjaRecipePackageName: str, platforms: List[ClangTidyPlatform]) -> None:
         super().__init__()
         self.CustomTidyFile = ".clang-tidy"
         self.FileExtensions = fileExtensions
-        self.RecipePackageName = recipePackageName
+        self.ClangRecipePackageName = clangRecipePackageName
+        self.ClangTidyRecipePackageName = clangTidyRecipePackageName
+        self.NinjaRecipePackageName = ninjaRecipePackageName
         platformDict = {}                                                # type: Dict[str,ClangTidyPlatform]
         for entry in platforms:
             platformDict[entry.Name.lower()] = entry
@@ -60,4 +63,3 @@ class ClangTidyConfiguration(ClangConfiguration):
                 raise Exception("ClangTidyConfiguration: File extension can not start with '..'")
             if not fileExt.startswith("."):
                 raise Exception("ClangTidyConfiguration: File extension '{0}' does not start with '.'")
-

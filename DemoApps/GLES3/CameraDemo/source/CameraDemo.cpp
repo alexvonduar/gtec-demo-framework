@@ -30,7 +30,7 @@
  ****************************************************************************************************************************************************/
 
 #include "CameraDemo.hpp"
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslDemoService/Graphics/IGraphicsService.hpp>
 #include <FslGraphics/PixelFormatUtil.hpp>
 #include <FslUtil/OpenGLES3/Exceptions.hpp>
@@ -60,11 +60,11 @@ namespace Fsl
   {
     try
     {
-      m_cameraRender = std::make_shared<CameraRender>(GetContentManager(), GetScreenResolution());
+      m_cameraRender = std::make_shared<CameraRender>(GetContentManager(), GetWindowSizePx());
     }
     catch (const std::exception& ex)
     {
-      FSLLOG_WARNING("Failed to create camera render: " << ex.what());
+      FSLLOG3_WARNING("Failed to create camera render: {}", ex.what());
     }
   }
 
@@ -72,16 +72,16 @@ namespace Fsl
   CameraDemo::~CameraDemo() = default;
 
 
-  void CameraDemo::Update(const DemoTime& demoTime)
+  void CameraDemo::Update(const DemoTime& /*demoTime*/)
   {
   }
 
 
   void CameraDemo::Draw(const DemoTime& demoTime)
   {
-    auto currentSize = GetScreenResolution();
+    auto currentSizePx = GetWindowSizePx();
 
-    glViewport(0, 0, currentSize.X, currentSize.Y);
+    glViewport(0, 0, currentSizePx.Width(), currentSizePx.Height());
 
     // Clear the color-buffer and depth-buffer
     glClearColor(0.0f, 0.0f, 0.5f, 1.0f);

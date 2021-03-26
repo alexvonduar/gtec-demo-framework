@@ -46,9 +46,10 @@ namespace Fsl
     Vector3 Tangent;
     Vector2 TextureCoordinate;
 
-    VertexPositionNormalTangentTexture() = default;
+    constexpr VertexPositionNormalTangentTexture() noexcept = default;
 
-    VertexPositionNormalTangentTexture(const Vector3& position, const Vector3& normal, const Vector3& tangent, const Vector2& textureCoordinate)
+    constexpr VertexPositionNormalTangentTexture(const Vector3& position, const Vector3& normal, const Vector3& tangent,
+                                                 const Vector2& textureCoordinate) noexcept
       : Position(position)
       , Normal(normal)
       , Tangent(tangent)

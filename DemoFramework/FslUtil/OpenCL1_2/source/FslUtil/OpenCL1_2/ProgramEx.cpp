@@ -31,9 +31,10 @@
 
 #include <FslUtil/OpenCL1_2/ProgramEx.hpp>
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <RapidOpenCL1/Check.hpp>
 #include <RapidOpenCL1/Exceptions.hpp>
+#include <array>
 #include <algorithm>
 #include <cassert>
 #include <cstring>
@@ -48,14 +49,15 @@ namespace Fsl
   {
     namespace
     {
+      // NOLINTNEXTLINE(misc-misplaced-const)
       cl_program Build(const cl_context context, const cl_device_id deviceId, const std::string& strProgram)
       {
-        const char* programCodeArray[1] = {strProgram.c_str()};
-        const std::size_t programLengthArray[1] = {strProgram.size()};
+        std::array<const char*, 1> programCodeArray = {strProgram.c_str()};
+        std::array<const std::size_t, 1> programLengthArray = {strProgram.size()};
 
         // Create the program for all GPUs in the context
         cl_int errorCode = CL_SUCCESS;
-        const auto hProgram = clCreateProgramWithSource(context, 1, programCodeArray, programLengthArray, &errorCode);
+        const cl_program hProgram = clCreateProgramWithSource(context, 1, programCodeArray.data(), programLengthArray.data(), &errorCode);
         RAPIDOPENCL_CHECK2(errorCode, "clCreateProgramWithSource");
         if (hProgram == nullptr)
         {
@@ -65,17 +67,17 @@ namespace Fsl
         errorCode = clBuildProgram(hProgram, 0, nullptr, "", nullptr, nullptr);
         if (errorCode != CL_SUCCESS)
         {
-          FSLLOG("*** Source start ***\n" << strProgram << "\n*** Source end ***\n\n");
+          FSLLOG3_INFO("*** Source start ***\n{}\n*** Source end ***\n\n", strProgram);
 
           // Determine the size of the log
-          std::size_t logSize;
+          std::size_t logSize = 0;
           RAPIDOPENCL_CHECK(clGetProgramBuildInfo(hProgram, deviceId, CL_PROGRAM_BUILD_LOG, 0, nullptr, &logSize));
 
           std::vector<char> errorLog(std::max(logSize, static_cast<std::size_t>(1)));
 
           // Retrieve the log
           RAPIDOPENCL_CHECK(clGetProgramBuildInfo(hProgram, deviceId, CL_PROGRAM_BUILD_LOG, errorLog.size(), errorLog.data(), nullptr));
-          FSLLOG("*** Error log start ***\n" << &errorLog[0] << "\n*** Error Log End ***\n\n");
+          FSLLOG3_INFO("*** Error log start ***\n{}\n*** Error Log End ***\n\n", &errorLog[0]);
 
           throw OpenCLErrorException("clBuildProgram failed", errorCode, __FILE__, __LINE__);
         }
@@ -106,18 +108,21 @@ namespace Fsl
     ProgramEx::ProgramEx() = default;
 
 
+    // NOLINTNEXTLINE(misc-misplaced-const)
     ProgramEx::ProgramEx(const cl_program program)
       : m_program(program)
     {
     }
 
 
+    // NOLINTNEXTLINE(misc-misplaced-const)
     ProgramEx::ProgramEx(const cl_context context, const cl_device_id deviceId, const std::string& program)
       : m_program(Build(context, deviceId, program))
     {
     }
 
 
+    // NOLINTNEXTLINE(misc-misplaced-const)
     void ProgramEx::Reset(const cl_context context, const cl_device_id deviceId, const std::string& program)
     {
       // Free any currently allocated resource

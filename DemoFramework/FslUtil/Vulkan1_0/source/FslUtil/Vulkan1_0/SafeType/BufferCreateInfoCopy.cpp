@@ -31,7 +31,7 @@
 
 #include <FslUtil/Vulkan1_0/SafeType/BufferCreateInfoCopy.hpp>
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <utility>
 
 namespace Fsl
@@ -85,19 +85,19 @@ namespace Fsl
       // Now use the safe copied values instead
       PatchPointers();
       m_value.pNext = nullptr;
-      FSLLOG_DEBUG_WARNING_IF(value.pNext != nullptr, "BufferCreateInfoCopy always stores a nullptr for pNext");
+      FSLLOG3_DEBUG_WARNING_IF(value.pNext != nullptr, "BufferCreateInfoCopy always stores a nullptr for pNext");
     }
 
 
     void BufferCreateInfoCopy::Reset()
     {
-      *this = std::move(BufferCreateInfoCopy());
+      *this = BufferCreateInfoCopy();
     }
 
 
     void BufferCreateInfoCopy::Reset(const VkBufferCreateInfo& value)
     {
-      *this = std::move(BufferCreateInfoCopy(value));
+      *this = BufferCreateInfoCopy(value);
     }
 
 

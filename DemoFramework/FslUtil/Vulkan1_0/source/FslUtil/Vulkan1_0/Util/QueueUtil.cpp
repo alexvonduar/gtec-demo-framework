@@ -31,7 +31,7 @@
 
 #include <FslUtil/Vulkan1_0/Util/QueueUtil.hpp>
 #include <FslUtil/Vulkan1_0/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <RapidVulkan/Check.hpp>
 #include <cassert>
 
@@ -68,7 +68,7 @@ namespace Fsl
       uint32_t GetQueueFamilyIndex(const std::vector<VkQueueFamilyProperties>& allQueueFamilyProperties, const VkQueueFlags queueFlags,
                                    const uint32_t queueIndex, const std::vector<bool>* pFilter)
       {
-        uint32_t queueFamilyIndex;
+        uint32_t queueFamilyIndex = 0;
         if (TryGetQueueFamilyIndex(allQueueFamilyProperties, queueFlags, queueIndex, pFilter, queueFamilyIndex))
         {
           return queueFamilyIndex;

@@ -30,19 +30,20 @@
  ****************************************************************************************************************************************************/
 
 #include "TextureCompression.hpp"
-#include <FslBase/Log/Log.hpp>
-#include <FslBase/Log/IO/LogPath.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
+#include <FslBase/Log/IO/FmtPath.hpp>
 #include <FslBase/String/StringUtil.hpp>
 #include <FslBase/String/ToString.hpp>
 #include <FslDemoService/Graphics/IGraphicsService.hpp>
-#include <FslGraphics/Log/LogPixelFormat.hpp>
+#include <FslGraphics/Log/FmtPixelFormat.hpp>
 #include <FslGraphics/PixelFormatUtil.hpp>
 #include <FslGraphics/Render/Texture2D.hpp>
+#include <FslSimpleUI/Base/Control/Extended/Texture2DImage.hpp>
+#include <FslSimpleUI/Base/Control/Label.hpp>
+#include <FslSimpleUI/Base/IWindowManager.hpp>
 #include <FslSimpleUI/Base/Layout/StackLayout.hpp>
 #include <FslSimpleUI/Base/Layout/FillLayout.hpp>
 #include <FslSimpleUI/Base/Layout/WrapLayout.hpp>
-#include <FslSimpleUI/Base/Control/Extended/Texture2DImage.hpp>
-#include <FslSimpleUI/Base/Control/Label.hpp>
 #include <FslUtil/OpenGLES3/DebugStrings.hpp>
 #include <FslUtil/OpenGLES3/Exceptions.hpp>
 #include <FslUtil/OpenGLES3/GLCheck.hpp>
@@ -52,7 +53,6 @@
 
 namespace Fsl
 {
-  using namespace UI;
   using namespace GLES3;
 
   namespace
@@ -137,26 +137,29 @@ namespace Fsl
     }
 
 
-    std::shared_ptr<BaseWindow> CreateTextureControl(const CreateContext& context, const Texture& texture, const std::string& caption)
+    std::shared_ptr<UI::BaseWindow> CreateTextureControl(const CreateContext& context, const Texture& texture, const std::string& caption)
     {
+      constexpr UI::DpLayoutSize1D forcedSizeDp(320);
+
       Texture2D sourceTexture(context.GraphicsService->GetNativeGraphics(), texture, Texture2DFilterHint::Smooth);
 
-      auto label = std::make_shared<Label>(context.WindowContext);
-      label->SetAlignmentX(ItemAlignment::Center);
-      label->SetAlignmentY(ItemAlignment::Far);
+      auto label = std::make_shared<UI::Label>(context.WindowContext);
+      label->SetAlignmentX(UI::ItemAlignment::Center);
+      label->SetAlignmentY(UI::ItemAlignment::Far);
+      label->SetContentAlignmentX(UI::ItemAlignment::Center);
+      label->SetContentAlignmentY(UI::ItemAlignment::Far);
       label->SetContent(caption);
+      label->SetWidth(forcedSizeDp);
 
-      auto tex = std::make_shared<Texture2DImage>(context.WindowContext);
+      auto tex = std::make_shared<UI::Texture2DImage>(context.WindowContext);
       tex->SetScalePolicy(UI::ItemScalePolicy::FitKeepAR);
       tex->SetContent(sourceTexture);
-      tex->SetAlignmentX(ItemAlignment::Center);
-      tex->SetAlignmentY(ItemAlignment::Center);
+      tex->SetAlignmentX(UI::ItemAlignment::Center);
+      tex->SetAlignmentY(UI::ItemAlignment::Center);
       tex->SetBlendState(BlendState::AlphaBlend);
-      // tex1->SetWidth(256);
-      // tex1->SetHeight(256);
 
-      auto stack = std::make_shared<StackLayout>(context.WindowContext);
-      stack->SetLayoutOrientation(LayoutOrientation::Vertical);
+      auto stack = std::make_shared<UI::StackLayout>(context.WindowContext);
+      stack->SetLayoutOrientation(UI::LayoutOrientation::Vertical);
       stack->AddChild(label);
       stack->AddChild(tex);
       return stack;
@@ -199,7 +202,7 @@ namespace Fsl
     }
 
 
-    std::shared_ptr<BaseWindow> CreateTextureControl(const CreateContext& context, const Texture& texture, const Texture& notSupportedTexture)
+    std::shared_ptr<UI::BaseWindow> CreateTextureControl(const CreateContext& context, const Texture& texture, const Texture& notSupportedTexture)
     {
       const auto pixelFormat = texture.GetPixelFormat();
       bool isSupported = IsSupported(context.TextureCaps, pixelFormat);
@@ -210,12 +213,12 @@ namespace Fsl
         StringUtil::Replace(caption, "PixelFormat::", "");
       }
 
-      FSLLOG("- " << caption << ": " << isSupported);
-      if (Fsl::Logger::GetLogLevel() >= LogType::Verbose)
+      FSLLOG3_INFO("- {}: {}", caption, isSupported);
+      if (Fsl::LogConfig::GetLogLevel() >= LogType::Verbose)
       {
-        //  FSLLOG("  - properties.linearTilingFeatures: " << GetBitflagsString(properties.linearTilingFeatures));
-        //  FSLLOG("  - properties.optimalTilingFeatures: " << GetBitflagsString(properties.optimalTilingFeatures));
-        //  FSLLOG("  - properties.bufferFeatures: " << GetBitflagsString(properties.bufferFeatures));
+        //  FSLLOG3_INFO("  - properties.linearTilingFeatures: {}", GetBitflagsString(properties.linearTilingFeatures));
+        //  FSLLOG3_INFO("  - properties.optimalTilingFeatures: {}", GetBitflagsString(properties.optimalTilingFeatures));
+        //  FSLLOG3_INFO("  - properties.bufferFeatures: {}", GetBitflagsString(properties.bufferFeatures));
       }
 
       if (isSupported)
@@ -227,7 +230,7 @@ namespace Fsl
     }
 
 
-    void CreateTextureControlsIfSupported(std::deque<std::shared_ptr<BaseWindow>>& rTextures, const CreateContext& context, const IO::Path& path,
+    void CreateTextureControlsIfSupported(std::deque<std::shared_ptr<UI::BaseWindow>>& rTextures, const CreateContext& context, const IO::Path& path,
                                           const PixelFormat switchPF, const Texture& notSupportedTexture)
     {
       auto newPath = IO::Path::Combine(TEXTURE_PATH, path);
@@ -252,14 +255,14 @@ namespace Fsl
       }
       catch (const std::exception&)
       {
-        FSLLOG("Failed to create texture from source: '" << path << "' with pixel format: " << texture.GetPixelFormat());
+        FSLLOG3_INFO("Failed to create texture from source: '{}' with pixel format: {}", path, texture.GetPixelFormat());
         throw;
       }
     }
 
     std::string TextureFormatToString(const GLint format)
     {
-      auto psz = GLES3::Debug::TryTextureFormatToString(format);
+      const auto* psz = GLES3::Debug::TryTextureFormatToString(format);
       return (psz != nullptr ? psz : "Unknown");
     }
   }
@@ -267,69 +270,70 @@ namespace Fsl
   TextureCompression::TextureCompression(const DemoAppConfig& config)
     : DemoAppGLES3(config)
     , m_uiEventListener(this)    // The UI listener forwards call to 'this' object
-    , m_uiExtension(std::make_shared<UIDemoAppExtension>(config, m_uiEventListener.GetListener(), "MainAtlas"))    // Prepare the extension
+    , m_uiExtension(
+        std::make_shared<UIDemoAppExtension>(config, m_uiEventListener.GetListener(), "UIAtlas/UIAtlas_160dpi"))    // Prepare the extension
   {
     // https://developer.android.com/guide/topics/graphics/opengl.html
 
     auto compressedTextureFormats = GLUtil::GetCompressedTextureFormats();
-    FSLLOG("Compressed texture formats:");
+    FSLLOG3_INFO("Compressed texture formats:");
     for (auto format : compressedTextureFormats)
     {
-      FSLLOG("- Format: 0x" << std::hex << (GLint)format << std::dec << " (" << TextureFormatToString(format) << ")");
+      FSLLOG3_INFO("- Format: 0x{:x} ({})", static_cast<GLint>(format), TextureFormatToString(format));
     }
 
     const auto textureCaps = GetTextureCapabilities();
 
-    FSLLOG("Compression extensions");
-    FSLLOG("ASTC");
-    FSLLOG("- GL_KHR_texture_compression_astc_ldr: " << textureCaps.HasASTC_LDR);
-    FSLLOG("- GL_KHR_texture_compression_astc_hdr: " << textureCaps.HasASTC_HDR);
-    FSLLOG("- GL_OES_texture_compression_astc: " << textureCaps.HasASTC_OES);
-    FSLLOG("- GL_KHR_texture_compression_astc_sliced_3d: " << textureCaps.HasASTC_Sliced3D);
-    FSLLOG("- GL_EXT_texture_compression_astc_decode_mode: " << textureCaps.HasASTC_DecodeMode);
-    FSLLOG("- GL_EXT_texture_compression_astc_decode_mode_rgb9e5: " << textureCaps.HasASTC_DecodeModeRGB9E5);
+    FSLLOG3_INFO("Compression extensions");
+    FSLLOG3_INFO("ASTC");
+    FSLLOG3_INFO("- GL_KHR_texture_compression_astc_ldr: {}", textureCaps.HasASTC_LDR);
+    FSLLOG3_INFO("- GL_KHR_texture_compression_astc_hdr: {}", textureCaps.HasASTC_HDR);
+    FSLLOG3_INFO("- GL_OES_texture_compression_astc: {}", textureCaps.HasASTC_OES);
+    FSLLOG3_INFO("- GL_KHR_texture_compression_astc_sliced_3d: {}", textureCaps.HasASTC_Sliced3D);
+    FSLLOG3_INFO("- GL_EXT_texture_compression_astc_decode_mode: {}", textureCaps.HasASTC_DecodeMode);
+    FSLLOG3_INFO("- GL_EXT_texture_compression_astc_decode_mode_rgb9e5: {}", textureCaps.HasASTC_DecodeModeRGB9E5);
 
-    FSLLOG("ATITC/ATC");
-    FSLLOG("- GL_AMD_compressed_ATC_texture: " << textureCaps.HasATITC1);
-    FSLLOG("- GL_AMD_compressed_ATC_texture: " << textureCaps.HasATITC2);
+    FSLLOG3_INFO("ATITC/ATC");
+    FSLLOG3_INFO("- GL_AMD_compressed_ATC_texture: {}", textureCaps.HasATITC1);
+    FSLLOG3_INFO("- GL_AMD_compressed_ATC_texture: {}", textureCaps.HasATITC2);
 
-    FSLLOG("ETC1");
-    FSLLOG("- GL_OES_compressed_ETC1_RGB8_texture: " << textureCaps.HasETC1);
+    FSLLOG3_INFO("ETC1");
+    FSLLOG3_INFO("- GL_OES_compressed_ETC1_RGB8_texture: {}", textureCaps.HasETC1);
 
-    FSLLOG("ETC2");
-    FSLLOG("- Mandatory in OpenGL ES 3");
+    FSLLOG3_INFO("ETC2");
+    FSLLOG3_INFO("- Mandatory in OpenGL ES 3");
 
-    FSLLOG("PVRTC");
-    FSLLOG("- GL_IMG_texture_compression_pvrtc: " << textureCaps.HasPVRTC);
+    FSLLOG3_INFO("PVRTC");
+    FSLLOG3_INFO("- GL_IMG_texture_compression_pvrtc: {}", textureCaps.HasPVRTC);
 
-    FSLLOG("PVRTC2");
-    FSLLOG("- GL_IMG_texture_compression_pvrtc2: " << textureCaps.HasPVRTC2);
+    FSLLOG3_INFO("PVRTC2");
+    FSLLOG3_INFO("- GL_IMG_texture_compression_pvrtc2: {}", textureCaps.HasPVRTC2);
 
-    FSLLOG("S3TC");
-    FSLLOG("- GL_EXT_texture_compression_s3tc: " << textureCaps.HasS3TC);
-    FSLLOG("- GL_EXT_texture_compression_dxt1: " << textureCaps.HasS3TC_dxt1);
+    FSLLOG3_INFO("S3TC");
+    FSLLOG3_INFO("- GL_EXT_texture_compression_s3tc: {}", textureCaps.HasS3TC);
+    FSLLOG3_INFO("- GL_EXT_texture_compression_dxt1: {}", textureCaps.HasS3TC_dxt1);
 
-    FSLLOG("");
-    FSLLOG("");
+    FSLLOG3_INFO("");
+    FSLLOG3_INFO("");
 
 
     std::string supportETC2("1");
 
-    FSLLOG("ASTC (Adaptive scalable texture compression)");
-    FSLLOG("- LDR: " << textureCaps.HasASTC_LDR);
-    FSLLOG("- HDR: " << textureCaps.HasASTC_HDR);
-    FSLLOG("- OES: " << textureCaps.HasASTC_OES);
-    FSLLOG("- Sliced3D: " << textureCaps.HasASTC_Sliced3D);
-    FSLLOG("- DecodeMode: " << textureCaps.HasASTC_DecodeMode);
-    FSLLOG("- DecodeModeRGB9E5: " << textureCaps.HasASTC_DecodeModeRGB9E5);
-    FSLLOG("ETC1 (Ericsson Texture Compression): " << textureCaps.HasETC1);
-    FSLLOG("ETC2 (Ericsson Texture Compression): " << supportETC2);
-    FSLLOG("PVRTC - PowerVR texture compression: " << textureCaps.HasPVRTC);
-    FSLLOG("PVRTC2 - PowerVR texture compression: " << textureCaps.HasPVRTC2);
-    FSLLOG("ATITC (ATI texture compression) also known as ATC: " << (textureCaps.HasATITC1 || textureCaps.HasATITC2));
-    FSLLOG("S3TC (S3 texture compression) DXTn, DXTC or BCn texture compression");
-    FSLLOG("- All: " << textureCaps.HasS3TC);
-    FSLLOG("- DXT1 only: " << textureCaps.HasS3TC_dxt1);
+    FSLLOG3_INFO("ASTC (Adaptive scalable texture compression)");
+    FSLLOG3_INFO("- LDR: {}", textureCaps.HasASTC_LDR);
+    FSLLOG3_INFO("- HDR: {}", textureCaps.HasASTC_HDR);
+    FSLLOG3_INFO("- OES: {}", textureCaps.HasASTC_OES);
+    FSLLOG3_INFO("- Sliced3D: {}", textureCaps.HasASTC_Sliced3D);
+    FSLLOG3_INFO("- DecodeMode: {}", textureCaps.HasASTC_DecodeMode);
+    FSLLOG3_INFO("- DecodeModeRGB9E5: {}", textureCaps.HasASTC_DecodeModeRGB9E5);
+    FSLLOG3_INFO("ETC1 (Ericsson Texture Compression): {}", textureCaps.HasETC1);
+    FSLLOG3_INFO("ETC2 (Ericsson Texture Compression): {}", supportETC2);
+    FSLLOG3_INFO("PVRTC - PowerVR texture compression: {}", textureCaps.HasPVRTC);
+    FSLLOG3_INFO("PVRTC2 - PowerVR texture compression: {}", textureCaps.HasPVRTC2);
+    FSLLOG3_INFO("ATITC (ATI texture compression) also known as ATC: {}", (textureCaps.HasATITC1 || textureCaps.HasATITC2));
+    FSLLOG3_INFO("S3TC (S3 texture compression) DXTn, DXTC or BCn texture compression");
+    FSLLOG3_INFO("- All: {}", textureCaps.HasS3TC);
+    FSLLOG3_INFO("- DXT1 only: {}", textureCaps.HasS3TC_dxt1);
 
     CreateUI(config.DemoServiceProvider);
   }
@@ -338,12 +342,12 @@ namespace Fsl
   TextureCompression::~TextureCompression() = default;
 
 
-  void TextureCompression::Update(const DemoTime& demoTime)
+  void TextureCompression::Update(const DemoTime& /*demoTime*/)
   {
   }
 
 
-  void TextureCompression::Draw(const DemoTime& demoTime)
+  void TextureCompression::Draw(const DemoTime& /*demoTime*/)
   {
     glClearColor(0.4f, 0.4f, 0.4f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -367,12 +371,12 @@ namespace Fsl
 
     createContext.TextureCaps = GetTextureCapabilities();
 
-    FSLLOG("Creating UI");
+    FSLLOG3_INFO("Creating UI");
 
     auto texDefault =
       createContext.ContentManager->ReadTexture("Textures/NotSupported/NotSupported_pre.png", PixelFormat::R8G8B8A8_UNORM, BitmapOrigin::LowerLeft);
 
-    std::deque<std::shared_ptr<BaseWindow>> textures;
+    std::deque<std::shared_ptr<UI::BaseWindow>> textures;
 
     {    // Uncompressed
       CreateTextureControlsIfSupported(textures, createContext, "CustomTexture_R8G8B8A8_flipped.ktx", PixelFormat::R8G8B8A8_UNORM, texDefault);
@@ -408,26 +412,26 @@ namespace Fsl
                                        texDefault);
     }
 
-    auto wrapLayout = std::make_shared<WrapLayout>(createContext.WindowContext);
-    wrapLayout->SetLayoutOrientation(LayoutOrientation::Horizontal);
-    wrapLayout->SetSpacing(Vector2(4, 4));
-    wrapLayout->SetAlignmentX(ItemAlignment::Center);
-    wrapLayout->SetAlignmentY(ItemAlignment::Center);
+    auto wrapLayout = std::make_shared<UI::WrapLayout>(createContext.WindowContext);
+    wrapLayout->SetLayoutOrientation(UI::LayoutOrientation::Horizontal);
+    wrapLayout->SetSpacing(DpPointF(4, 4));
+    wrapLayout->SetAlignmentX(UI::ItemAlignment::Center);
+    wrapLayout->SetAlignmentY(UI::ItemAlignment::Center);
 
     for (const auto& tex : textures)
     {
       wrapLayout->AddChild(tex);
     }
 
-    m_scrollable = std::make_shared<VerticalScroller>(createContext.WindowContext);
+    m_scrollable = std::make_shared<UI::VerticalScroller>(createContext.WindowContext);
     m_scrollable->SetContent(wrapLayout);
-    m_scrollable->SetScrollPadding(ThicknessF(0, 32, 0, 32));
+    m_scrollable->SetScrollPadding(DpThicknessF(0, 32, 0, 32));
     // scrollLayout->SetAlignmentX(ItemAlignment::Stretch);
     // scrollLayout->SetAlignmentY(ItemAlignment::Stretch);
 
     // Create a 'root' layout we use the recommended fill layout as it will utilize all available space on the screen
     // We then add the 'player' stack to it and the label
-    auto fillLayout = std::make_shared<FillLayout>(createContext.WindowContext);
+    auto fillLayout = std::make_shared<UI::FillLayout>(createContext.WindowContext);
     fillLayout->AddChild(m_scrollable);
 
     // Finally add everything to the window manager (to ensure its seen)

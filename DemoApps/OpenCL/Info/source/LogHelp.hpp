@@ -31,55 +31,21 @@
  *
  ****************************************************************************************************************************************************/
 
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/String/ToString.hpp>
 #include <RapidOpenCL1/DebugStrings.hpp>
-#include <FslUtil/OpenCL1_1/OpenCLHelper.hpp>
+#include <FslUtil/OpenCL1_2/OpenCLHelper.hpp>
 #include <string>
 #include <vector>
 #include <sstream>
+#include "CustomWriter.hpp"
 
 namespace Fsl
 {
-  class LogHelp
+  class LogHelp : public CustomWriter
   {
-    uint32_t m_currentIndent{0};
-
   public:
-    std::string Indent;
-
     LogHelp() = default;
-
-    void PushIndent()
-    {
-      if (m_currentIndent >= 0x10)
-      {
-        return;
-      }
-      ++m_currentIndent;
-      RebuildIndentString();
-    }
-
-    void PopIndent()
-    {
-      if (m_currentIndent == 0)
-      {
-        return;
-      }
-
-      --m_currentIndent;
-      RebuildIndentString();
-    }
-
-    void RebuildIndentString()
-    {
-      Indent.clear();
-      for (uint32_t i = 0; i < m_currentIndent; ++i)
-      {
-        Indent += "  ";
-      }
-    }
-
 
     template <typename T>
     inline std::string ToString(const std::vector<T>& container)
@@ -103,23 +69,17 @@ namespace Fsl
     }
 
     template <typename T>
-    inline std::string ToString(const T& value)
-    {
-      return Fsl::ToString(value);
-    }
-
-    template <typename T>
     void LogPlatformInfo(const std::string& text, const cl_platform_id platformId, const cl_platform_info platformInfo)
     {
       T result;
-      FSLLOG(Indent << text << (OpenCL::OpenCLHelper::TryGetPlatformInfo<T>(platformId, platformInfo, result) ? ToString(result) : "Unavailable"));
+      Print("{}{}", text, (OpenCL::OpenCLHelper::TryGetPlatformInfo<T>(platformId, platformInfo, result) ? Fsl::ToString(result) : "Unavailable"));
     }
 
     template <typename T>
     void LogDeviceInfo(const std::string& text, const cl_device_id deviceId, const cl_device_info deviceInfo)
     {
       T result;
-      FSLLOG(Indent << text << (OpenCL::OpenCLHelper::TryGetDeviceInfo<T>(deviceId, deviceInfo, result) ? ToString(result) : "Unavailable"));
+      Print("{}{}", text, (OpenCL::OpenCLHelper::TryGetDeviceInfo<T>(deviceId, deviceInfo, result) ? Fsl::ToString(result) : "Unavailable"));
     }
 
     // CL_PLATFORM_PROFILE (char[])
@@ -128,7 +88,8 @@ namespace Fsl
 #ifdef CL_PLATFORM_PROFILE
       LogPlatformInfo<std::string>("CL_PLATFORM_PROFILE: ", platformId, CL_PLATFORM_PROFILE);
 #else
-      FSLLOG(Indent << "CL_PLATFORM_PROFILE: Unavailable");
+      FSL_PARAM_NOT_USED(platformId);
+      Print("CL_PLATFORM_PROFILE: Unavailable");
 #endif
     }
 
@@ -138,7 +99,8 @@ namespace Fsl
 #ifdef CL_PLATFORM_VERSION
       LogPlatformInfo<std::string>("CL_PLATFORM_VERSION: ", platformId, CL_PLATFORM_VERSION);
 #else
-      FSLLOG(Indent << "CL_PLATFORM_VERSION: Unavailable");
+      FSL_PARAM_NOT_USED(platformId);
+      Print("CL_PLATFORM_VERSION: Unavailable");
 #endif
     }
 
@@ -148,7 +110,8 @@ namespace Fsl
 #ifdef CL_PLATFORM_NAME
       LogPlatformInfo<std::string>("CL_PLATFORM_NAME: ", platformId, CL_PLATFORM_NAME);
 #else
-      FSLLOG(Indent << "CL_PLATFORM_NAME: Unavailable");
+      FSL_PARAM_NOT_USED(platformId);
+      Print("CL_PLATFORM_NAME: Unavailable");
 #endif
     }
 
@@ -158,7 +121,8 @@ namespace Fsl
 #ifdef CL_PLATFORM_VENDOR
       LogPlatformInfo<std::string>("CL_PLATFORM_VENDOR: ", platformId, CL_PLATFORM_VENDOR);
 #else
-      FSLLOG(Indent << "CL_PLATFORM_VENDOR: Unavailable");
+      FSL_PARAM_NOT_USED(platformId);
+      Print("CL_PLATFORM_VENDOR: Unavailable");
 #endif
     }
 
@@ -168,7 +132,8 @@ namespace Fsl
 #ifdef CL_PLATFORM_EXTENSIONS
       LogPlatformInfo<std::string>("CL_PLATFORM_EXTENSIONS: ", platformId, CL_PLATFORM_EXTENSIONS);
 #else
-      FSLLOG(Indent << "CL_PLATFORM_EXTENSIONS: Unavailable");
+      FSL_PARAM_NOT_USED(platformId);
+      Print("CL_PLATFORM_EXTENSIONS: Unavailable");
 #endif
     }
 
@@ -179,7 +144,8 @@ namespace Fsl
 #ifdef CL_PLATFORM_HOST_TIMER_RESOLUTION
       LogPlatformInfo<cl_ulong>("CL_PLATFORM_HOST_TIMER_RESOLUTION: ", platformId, CL_PLATFORM_HOST_TIMER_RESOLUTION);
 #else
-      FSLLOG(Indent << "CL_PLATFORM_HOST_TIMER_RESOLUTION: Unavailable");
+      FSL_PARAM_NOT_USED(platformId);
+      Print("CL_PLATFORM_HOST_TIMER_RESOLUTION: Unavailable");
 #endif
     }
 
@@ -190,7 +156,8 @@ namespace Fsl
 #ifdef CL_PLATFORM_ICD_SUFFIX_KHR
       LogPlatformInfo<std::string>("CL_PLATFORM_ICD_SUFFIX_KHR: ", platformId, CL_PLATFORM_ICD_SUFFIX_KHR);
 #else
-      FSLLOG(Indent << "CL_PLATFORM_ICD_SUFFIX_KHR: Unavailable");
+      FSL_PARAM_NOT_USED(platformId);
+      Print("CL_PLATFORM_ICD_SUFFIX_KHR: Unavailable");
 #endif
     }
 
@@ -201,7 +168,8 @@ namespace Fsl
 #ifdef CL_DEVICE_ADDRESS_BITS
       LogDeviceInfo<cl_uint>("CL_DEVICE_ADDRESS_BITS: ", deviceId, CL_DEVICE_ADDRESS_BITS);
 #else
-      FSLLOG(Indent << "CL_DEVICE_ADDRESS_BITS: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_ADDRESS_BITS: Unavailable");
 #endif
     }
 
@@ -211,7 +179,8 @@ namespace Fsl
 #ifdef CL_DEVICE_ADDRESS_BITS
       LogDeviceInfo<cl_bool>("CL_DEVICE_AVAILABLE: ", deviceId, CL_DEVICE_AVAILABLE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_AVAILABLE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_AVAILABLE: Unavailable");
 #endif
     }
 
@@ -221,7 +190,8 @@ namespace Fsl
 #ifdef CL_DEVICE_BUILT_IN_KERNELS
       LogDeviceInfo<std::string>("CL_DEVICE_BUILT_IN_KERNELS: ", deviceId, CL_DEVICE_BUILT_IN_KERNELS);
 #else
-      FSLLOG(Indent << "CL_DEVICE_BUILT_IN_KERNELS: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_BUILT_IN_KERNELS: Unavailable");
 #endif
     }
 
@@ -232,7 +202,8 @@ namespace Fsl
 #ifdef CL_DEVICE_COMPILER_AVAILABLE
       LogDeviceInfo<cl_bool>("CL_DEVICE_COMPILER_AVAILABLE: ", deviceId, CL_DEVICE_COMPILER_AVAILABLE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_COMPILER_AVAILABLE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_COMPILER_AVAILABLE: Unavailable");
 #endif
     }
 
@@ -242,7 +213,8 @@ namespace Fsl
 #ifdef CL_DEVICE_DOUBLE_FP_CONFIG
       LogDeviceInfo<cl_device_fp_config>("CL_DEVICE_DOUBLE_FP_CONFIG: ", deviceId, CL_DEVICE_DOUBLE_FP_CONFIG);
 #else
-      FSLLOG(Indent << "CL_DEVICE_DOUBLE_FP_CONFIG: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_DOUBLE_FP_CONFIG: Unavailable");
 #endif
     }
 
@@ -252,7 +224,8 @@ namespace Fsl
 #ifdef CL_DEVICE_ENDIAN_LITTLE
       LogDeviceInfo<cl_bool>("CL_DEVICE_ENDIAN_LITTLE: ", deviceId, CL_DEVICE_ENDIAN_LITTLE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_ENDIAN_LITTLE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_ENDIAN_LITTLE: Unavailable");
 #endif
     }
 
@@ -262,7 +235,8 @@ namespace Fsl
 #ifdef CL_DEVICE_ERROR_CORRECTION_SUPPORT
       LogDeviceInfo<cl_bool>("CL_DEVICE_ERROR_CORRECTION_SUPPORT: ", deviceId, CL_DEVICE_ERROR_CORRECTION_SUPPORT);
 #else
-      FSLLOG(Indent << "CL_DEVICE_ERROR_CORRECTION_SUPPORT: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_ERROR_CORRECTION_SUPPORT: Unavailable");
 #endif
     }
 
@@ -272,7 +246,8 @@ namespace Fsl
 #ifdef CL_DEVICE_EXECUTION_CAPABILITIES
       LogDeviceInfo<cl_device_exec_capabilities>("CL_DEVICE_EXECUTION_CAPABILITIES: ", deviceId, CL_DEVICE_EXECUTION_CAPABILITIES);
 #else
-      FSLLOG(Indent << "CL_DEVICE_EXECUTION_CAPABILITIES: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_EXECUTION_CAPABILITIES: Unavailable");
 #endif
     }
 
@@ -283,7 +258,8 @@ namespace Fsl
 #ifdef CL_DEVICE_EXTENSIONS
       LogDeviceInfo<std::string>("CL_DEVICE_EXTENSIONS: ", deviceId, CL_DEVICE_EXTENSIONS);
 #else
-      FSLLOG(Indent << "CL_DEVICE_EXTENSIONS: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_EXTENSIONS: Unavailable");
 #endif
     }
 
@@ -293,7 +269,8 @@ namespace Fsl
 #ifdef CL_DEVICE_GLOBAL_MEM_CACHE_SIZE
       LogDeviceInfo<cl_ulong>("CL_DEVICE_GLOBAL_MEM_CACHE_SIZE: ", deviceId, CL_DEVICE_GLOBAL_MEM_CACHE_SIZE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_GLOBAL_MEM_CACHE_SIZE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_GLOBAL_MEM_CACHE_SIZE: Unavailable");
 #endif
     }
 
@@ -303,7 +280,8 @@ namespace Fsl
 #ifdef CL_DEVICE_GLOBAL_MEM_CACHE_TYPE
       LogDeviceInfo<cl_device_mem_cache_type>("CL_DEVICE_GLOBAL_MEM_CACHE_TYPE: ", deviceId, CL_DEVICE_GLOBAL_MEM_CACHE_TYPE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_GLOBAL_MEM_CACHE_TYPE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_GLOBAL_MEM_CACHE_TYPE: Unavailable");
 #endif
     }
 
@@ -313,7 +291,8 @@ namespace Fsl
 #ifdef CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE
       LogDeviceInfo<cl_ulong>("CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE: ", deviceId, CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE: Unavailable");
 #endif
     }
 
@@ -323,7 +302,8 @@ namespace Fsl
 #ifdef CL_DEVICE_GLOBAL_MEM_SIZE
       LogDeviceInfo<cl_ulong>("CL_DEVICE_GLOBAL_MEM_SIZE: ", deviceId, CL_DEVICE_GLOBAL_MEM_SIZE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_GLOBAL_MEM_SIZE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_GLOBAL_MEM_SIZE: Unavailable");
 #endif
     }
 
@@ -333,7 +313,8 @@ namespace Fsl
 #ifdef CL_DEVICE_GLOBAL_VARIABLE_PREFERRED_TOTAL_SIZE
       LogDeviceInfo<std::size_t>("CL_DEVICE_GLOBAL_VARIABLE_PREFERRED_TOTAL_SIZE: ", deviceId, CL_DEVICE_GLOBAL_VARIABLE_PREFERRED_TOTAL_SIZE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_GLOBAL_VARIABLE_PREFERRED_TOTAL_SIZE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_GLOBAL_VARIABLE_PREFERRED_TOTAL_SIZE: Unavailable");
 #endif
     }
 
@@ -343,7 +324,8 @@ namespace Fsl
 #ifdef CL_DEVICE_HALF_FP_CONFIG
       LogDeviceInfo<cl_device_fp_config>("CL_DEVICE_HALF_FP_CONFIG: ", deviceId, CL_DEVICE_HALF_FP_CONFIG);
 #else
-      FSLLOG(Indent << "CL_DEVICE_HALF_FP_CONFIG: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_HALF_FP_CONFIG: Unavailable");
 #endif
     }
 
@@ -356,7 +338,8 @@ namespace Fsl
 #ifdef CL_DEVICE_HOST_UNIFIED_MEMORY
       LogDeviceInfo<cl_bool>("CL_DEVICE_HOST_UNIFIED_MEMORY: ", deviceId, CL_DEVICE_HOST_UNIFIED_MEMORY);
 #else
-      FSLLOG(Indent << "CL_DEVICE_HOST_UNIFIED_MEMORY: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_HOST_UNIFIED_MEMORY: Unavailable");
 #endif
     }
 
@@ -367,7 +350,8 @@ namespace Fsl
 #ifdef CL_DEVICE_IL_VERSION
       LogDeviceInfo<std::string>("CL_DEVICE_IL_VERSION: ", deviceId, CL_DEVICE_IL_VERSION);
 #else
-      FSLLOG(Indent << "CL_DEVICE_IL_VERSION: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_IL_VERSION: Unavailable");
 #endif
     }
 
@@ -378,7 +362,8 @@ namespace Fsl
 #ifdef CL_DEVICE_IMAGE_SUPPORT
       LogDeviceInfo<cl_bool>("CL_DEVICE_IMAGE_SUPPORT: ", deviceId, CL_DEVICE_IMAGE_SUPPORT);
 #else
-      FSLLOG(Indent << "CL_DEVICE_IMAGE_SUPPORT: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_IMAGE_SUPPORT: Unavailable");
 #endif
     }
 
@@ -388,7 +373,8 @@ namespace Fsl
 #ifdef CL_DEVICE_IMAGE2D_MAX_HEIGHT
       LogDeviceInfo<std::size_t>("CL_DEVICE_IMAGE2D_MAX_HEIGHT: ", deviceId, CL_DEVICE_IMAGE2D_MAX_HEIGHT);
 #else
-      FSLLOG(Indent << "CL_DEVICE_IMAGE2D_MAX_HEIGHT: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_IMAGE2D_MAX_HEIGHT: Unavailable");
 #endif
     }
 
@@ -399,7 +385,8 @@ namespace Fsl
 #ifdef CL_DEVICE_IMAGE2D_MAX_WIDTH
       LogDeviceInfo<std::size_t>("CL_DEVICE_IMAGE2D_MAX_WIDTH: ", deviceId, CL_DEVICE_IMAGE2D_MAX_WIDTH);
 #else
-      FSLLOG(Indent << "CL_DEVICE_IMAGE2D_MAX_WIDTH: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_IMAGE2D_MAX_WIDTH: Unavailable");
 #endif
     }
 
@@ -410,7 +397,8 @@ namespace Fsl
 #ifdef CL_DEVICE_IMAGE3D_MAX_DEPTH
       LogDeviceInfo<std::size_t>("CL_DEVICE_IMAGE3D_MAX_DEPTH: ", deviceId, CL_DEVICE_IMAGE3D_MAX_DEPTH);
 #else
-      FSLLOG(Indent << "CL_DEVICE_IMAGE3D_MAX_DEPTH: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_IMAGE3D_MAX_DEPTH: Unavailable");
 #endif
     }
 
@@ -421,7 +409,8 @@ namespace Fsl
 #ifdef CL_DEVICE_IMAGE3D_MAX_HEIGHT
       LogDeviceInfo<std::size_t>("CL_DEVICE_IMAGE3D_MAX_HEIGHT: ", deviceId, CL_DEVICE_IMAGE3D_MAX_HEIGHT);
 #else
-      FSLLOG(Indent << "CL_DEVICE_IMAGE3D_MAX_HEIGHT: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_IMAGE3D_MAX_HEIGHT: Unavailable");
 #endif
     }
 
@@ -432,7 +421,8 @@ namespace Fsl
 #ifdef CL_DEVICE_IMAGE3D_MAX_WIDTH
       LogDeviceInfo<std::size_t>("CL_DEVICE_IMAGE3D_MAX_WIDTH: ", deviceId, CL_DEVICE_IMAGE3D_MAX_WIDTH);
 #else
-      FSLLOG(Indent << "CL_DEVICE_IMAGE3D_MAX_WIDTH: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_IMAGE3D_MAX_WIDTH: Unavailable");
 #endif
     }
 
@@ -443,7 +433,8 @@ namespace Fsl
 #ifdef CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT
       LogDeviceInfo<cl_uint>("CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT: ", deviceId, CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT);
 #else
-      FSLLOG(Indent << "CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT: Unavailable");
 #endif
     }
 
@@ -454,7 +445,8 @@ namespace Fsl
 #ifdef CL_DEVICE_IMAGE_MAX_BUFFER_SIZE
       LogDeviceInfo<std::size_t>("CL_DEVICE_IMAGE_MAX_BUFFER_SIZE: ", deviceId, CL_DEVICE_IMAGE_MAX_BUFFER_SIZE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_IMAGE_MAX_BUFFER_SIZE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_IMAGE_MAX_BUFFER_SIZE: Unavailable");
 #endif
     }
 
@@ -464,7 +456,8 @@ namespace Fsl
 #ifdef CL_DEVICE_IMAGE_PITCH_ALIGNMENT
       LogDeviceInfo<cl_uint>("CL_DEVICE_IMAGE_PITCH_ALIGNMENT: ", deviceId, CL_DEVICE_IMAGE_PITCH_ALIGNMENT);
 #else
-      FSLLOG(Indent << "CL_DEVICE_IMAGE_PITCH_ALIGNMENT: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_IMAGE_PITCH_ALIGNMENT: Unavailable");
 #endif
     }
 
@@ -475,7 +468,8 @@ namespace Fsl
 #ifdef CL_DEVICE_IMAGE_MAX_ARRAY_SIZE
       LogDeviceInfo<std::size_t>("CL_DEVICE_IMAGE_MAX_ARRAY_SIZE: ", deviceId, CL_DEVICE_IMAGE_MAX_ARRAY_SIZE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_IMAGE_MAX_ARRAY_SIZE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_IMAGE_MAX_ARRAY_SIZE: Unavailable");
 #endif
     }
 
@@ -486,7 +480,8 @@ namespace Fsl
 #ifdef CL_DEVICE_LINKER_AVAILABLE
       LogDeviceInfo<cl_bool>("CL_DEVICE_LINKER_AVAILABLE: ", deviceId, CL_DEVICE_LINKER_AVAILABLE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_LINKER_AVAILABLE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_LINKER_AVAILABLE: Unavailable");
 #endif
     }
 
@@ -497,7 +492,8 @@ namespace Fsl
 #ifdef CL_DEVICE_LOCAL_MEM_SIZE
       LogDeviceInfo<cl_ulong>("CL_DEVICE_LOCAL_MEM_SIZE: ", deviceId, CL_DEVICE_LOCAL_MEM_SIZE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_LOCAL_MEM_SIZE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_LOCAL_MEM_SIZE: Unavailable");
 #endif
     }
 
@@ -508,7 +504,8 @@ namespace Fsl
 #ifdef CL_DEVICE_LOCAL_MEM_TYPE
       LogDeviceInfo<cl_device_local_mem_type>("CL_DEVICE_LOCAL_MEM_TYPE: ", deviceId, CL_DEVICE_LOCAL_MEM_TYPE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_LOCAL_MEM_TYPE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_LOCAL_MEM_TYPE: Unavailable");
 #endif
     }
 
@@ -519,7 +516,8 @@ namespace Fsl
 #ifdef CL_DEVICE_MAX_CLOCK_FREQUENCY
       LogDeviceInfo<cl_uint>("CL_DEVICE_MAX_CLOCK_FREQUENCY: ", deviceId, CL_DEVICE_MAX_CLOCK_FREQUENCY);
 #else
-      FSLLOG(Indent << "CL_DEVICE_MAX_CLOCK_FREQUENCY: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_MAX_CLOCK_FREQUENCY: Unavailable");
 #endif
     }
 
@@ -530,7 +528,8 @@ namespace Fsl
 #ifdef CL_DEVICE_MAX_COMPUTE_UNITS
       LogDeviceInfo<cl_uint>("CL_DEVICE_MAX_COMPUTE_UNITS: ", deviceId, CL_DEVICE_MAX_COMPUTE_UNITS);
 #else
-      FSLLOG(Indent << "CL_DEVICE_MAX_COMPUTE_UNITS: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_MAX_COMPUTE_UNITS: Unavailable");
 #endif
     }
 
@@ -541,7 +540,8 @@ namespace Fsl
 #ifdef CL_DEVICE_MAX_CONSTANT_ARGS
       LogDeviceInfo<cl_uint>("CL_DEVICE_MAX_CONSTANT_ARGS: ", deviceId, CL_DEVICE_MAX_CONSTANT_ARGS);
 #else
-      FSLLOG(Indent << "CL_DEVICE_MAX_CONSTANT_ARGS: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_MAX_CONSTANT_ARGS: Unavailable");
 #endif
     }
 
@@ -552,7 +552,8 @@ namespace Fsl
 #ifdef CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE
       LogDeviceInfo<cl_ulong>("CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE: ", deviceId, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE: Unavailable");
 #endif
     }
 
@@ -563,7 +564,8 @@ namespace Fsl
 #ifdef CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE
       LogDeviceInfo<std::size_t>("CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE: ", deviceId, CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE: Unavailable");
 #endif
     }
 
@@ -574,7 +576,8 @@ namespace Fsl
 #ifdef CL_DEVICE_MAX_MEM_ALLOC_SIZE
       LogDeviceInfo<cl_ulong>("CL_DEVICE_MAX_MEM_ALLOC_SIZE: ", deviceId, CL_DEVICE_MAX_MEM_ALLOC_SIZE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_MAX_MEM_ALLOC_SIZE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_MAX_MEM_ALLOC_SIZE: Unavailable");
 #endif
     }
 
@@ -585,7 +588,8 @@ namespace Fsl
 #ifdef CL_DEVICE_MAX_NUM_SUB_GROUPS
       LogDeviceInfo<cl_uint>("CL_DEVICE_MAX_NUM_SUB_GROUPS: ", deviceId, CL_DEVICE_MAX_NUM_SUB_GROUPS);
 #else
-      FSLLOG(Indent << "CL_DEVICE_MAX_NUM_SUB_GROUPS: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_MAX_NUM_SUB_GROUPS: Unavailable");
 #endif
     }
 
@@ -596,7 +600,8 @@ namespace Fsl
 #ifdef CL_DEVICE_MAX_ON_DEVICE_EVENTS
       LogDeviceInfo<cl_uint>("CL_DEVICE_MAX_ON_DEVICE_EVENTS: ", deviceId, CL_DEVICE_MAX_ON_DEVICE_EVENTS);
 #else
-      FSLLOG(Indent << "CL_DEVICE_MAX_ON_DEVICE_EVENTS: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_MAX_ON_DEVICE_EVENTS: Unavailable");
 #endif
     }
 
@@ -607,7 +612,8 @@ namespace Fsl
 #ifdef CL_DEVICE_MAX_ON_DEVICE_QUEUES
       LogDeviceInfo<cl_uint>("CL_DEVICE_MAX_ON_DEVICE_QUEUES: ", deviceId, CL_DEVICE_MAX_ON_DEVICE_QUEUES);
 #else
-      FSLLOG(Indent << "CL_DEVICE_MAX_ON_DEVICE_QUEUES: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_MAX_ON_DEVICE_QUEUES: Unavailable");
 #endif
     }
 
@@ -618,7 +624,8 @@ namespace Fsl
 #ifdef CL_DEVICE_MAX_PARAMETER_SIZE
       LogDeviceInfo<std::size_t>("CL_DEVICE_MAX_PARAMETER_SIZE: ", deviceId, CL_DEVICE_MAX_PARAMETER_SIZE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_MAX_PARAMETER_SIZE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_MAX_PARAMETER_SIZE: Unavailable");
 #endif
     }
 
@@ -629,7 +636,8 @@ namespace Fsl
 #ifdef CL_DEVICE_MAX_PIPE_ARGS
       LogDeviceInfo<cl_uint>("CL_DEVICE_MAX_PIPE_ARGS: ", deviceId, CL_DEVICE_MAX_PIPE_ARGS);
 #else
-      FSLLOG(Indent << "CL_DEVICE_MAX_PIPE_ARGS: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_MAX_PIPE_ARGS: Unavailable");
 #endif
     }
 
@@ -640,7 +648,8 @@ namespace Fsl
 #ifdef CL_DEVICE_MAX_READ_IMAGE_ARGS
       LogDeviceInfo<cl_uint>("CL_DEVICE_MAX_READ_IMAGE_ARGS: ", deviceId, CL_DEVICE_MAX_READ_IMAGE_ARGS);
 #else
-      FSLLOG(Indent << "CL_DEVICE_MAX_READ_IMAGE_ARGS: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_MAX_READ_IMAGE_ARGS: Unavailable");
 #endif
     }
 
@@ -651,7 +660,8 @@ namespace Fsl
 #ifdef CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS
       LogDeviceInfo<cl_uint>("CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS: ", deviceId, CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS);
 #else
-      FSLLOG(Indent << "CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS: Unavailable");
 #endif
     }
 
@@ -662,7 +672,8 @@ namespace Fsl
 #ifdef CL_DEVICE_MAX_SAMPLERS
       LogDeviceInfo<cl_uint>("CL_DEVICE_MAX_SAMPLERS: ", deviceId, CL_DEVICE_MAX_SAMPLERS);
 #else
-      FSLLOG(Indent << "CL_DEVICE_MAX_SAMPLERS: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_MAX_SAMPLERS: Unavailable");
 #endif
     }
 
@@ -673,7 +684,8 @@ namespace Fsl
 #ifdef CL_DEVICE_MAX_WORK_GROUP_SIZE
       LogDeviceInfo<std::size_t>("CL_DEVICE_MAX_WORK_GROUP_SIZE: ", deviceId, CL_DEVICE_MAX_WORK_GROUP_SIZE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_MAX_WORK_GROUP_SIZE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_MAX_WORK_GROUP_SIZE: Unavailable");
 #endif
     }
 
@@ -684,7 +696,8 @@ namespace Fsl
 #ifdef CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS
       LogDeviceInfo<cl_uint>("CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS: ", deviceId, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS);
 #else
-      FSLLOG(Indent << "CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS: Unavailable");
 #endif
     }
 
@@ -696,14 +709,15 @@ namespace Fsl
       std::vector<std::size_t> container;
       if (!OpenCL::OpenCLHelper::TryGetDeviceInfo(deviceId, CL_DEVICE_MAX_WORK_ITEM_SIZES, container))
       {
-        FSLLOG(Indent << "CL_DEVICE_MAX_WORK_ITEM_SIZES: Unavailable");
+        Print("CL_DEVICE_MAX_WORK_ITEM_SIZES: Unavailable");
       }
       else
       {
-        FSLLOG(Indent << "CL_DEVICE_MAX_WORK_ITEM_SIZES: " << ToString(container));
+        Print("CL_DEVICE_MAX_WORK_ITEM_SIZES: {}", ToString(container));
       }
 #else
-      FSLLOG(Indent << "CL_DEVICE_MAX_WORK_ITEM_SIZES: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_MAX_WORK_ITEM_SIZES: Unavailable");
 #endif
     }
 
@@ -714,7 +728,8 @@ namespace Fsl
 #ifdef CL_DEVICE_MAX_WRITE_IMAGE_ARGS
       LogDeviceInfo<cl_uint>("CL_DEVICE_MAX_WRITE_IMAGE_ARGS: ", deviceId, CL_DEVICE_MAX_WRITE_IMAGE_ARGS);
 #else
-      FSLLOG(Indent << "CL_DEVICE_MAX_WRITE_IMAGE_ARGS: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_MAX_WRITE_IMAGE_ARGS: Unavailable");
 #endif
     }
 
@@ -725,7 +740,8 @@ namespace Fsl
 #ifdef CL_DEVICE_MEM_BASE_ADDR_ALIGN
       LogDeviceInfo<cl_uint>("CL_DEVICE_MEM_BASE_ADDR_ALIGN: ", deviceId, CL_DEVICE_MEM_BASE_ADDR_ALIGN);
 #else
-      FSLLOG(Indent << "CL_DEVICE_MEM_BASE_ADDR_ALIGN: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_MEM_BASE_ADDR_ALIGN: Unavailable");
 #endif
     }
 
@@ -736,7 +752,8 @@ namespace Fsl
 #ifdef CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE
       LogDeviceInfo<cl_uint>("CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE: ", deviceId, CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE: Unavailable");
 #endif
     }
 
@@ -747,7 +764,8 @@ namespace Fsl
 #ifdef CL_DEVICE_NAME
       LogDeviceInfo<std::string>("CL_DEVICE_NAME: ", deviceId, CL_DEVICE_NAME);
 #else
-      FSLLOG(Indent << "CL_DEVICE_NAME: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_NAME: Unavailable");
 #endif
     }
 
@@ -757,7 +775,8 @@ namespace Fsl
 #ifdef CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR
       LogDeviceInfo<cl_uint>("CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR: ", deviceId, CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR);
 #else
-      FSLLOG(Indent << "CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR: Unavailable");
 #endif
     }
 
@@ -768,7 +787,8 @@ namespace Fsl
 #ifdef CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT
       LogDeviceInfo<cl_uint>("CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT: ", deviceId, CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT);
 #else
-      FSLLOG(Indent << "CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT: Unavailable");
 #endif
     }
 
@@ -779,7 +799,8 @@ namespace Fsl
 #ifdef CL_DEVICE_NATIVE_VECTOR_WIDTH_INT
       LogDeviceInfo<cl_uint>("CL_DEVICE_NATIVE_VECTOR_WIDTH_INT: ", deviceId, CL_DEVICE_NATIVE_VECTOR_WIDTH_INT);
 #else
-      FSLLOG(Indent << "CL_DEVICE_NATIVE_VECTOR_WIDTH_INT: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_NATIVE_VECTOR_WIDTH_INT: Unavailable");
 #endif
     }
 
@@ -790,7 +811,8 @@ namespace Fsl
 #ifdef CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG
       LogDeviceInfo<cl_uint>("CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG: ", deviceId, CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG);
 #else
-      FSLLOG(Indent << "CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG: Unavailable");
 #endif
     }
 
@@ -801,7 +823,8 @@ namespace Fsl
 #ifdef CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT
       LogDeviceInfo<cl_uint>("CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT: ", deviceId, CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT);
 #else
-      FSLLOG(Indent << "CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT: Unavailable");
 #endif
     }
 
@@ -812,7 +835,8 @@ namespace Fsl
 #ifdef CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE
       LogDeviceInfo<cl_uint>("CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE: ", deviceId, CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE: Unavailable");
 #endif
     }
 
@@ -823,7 +847,8 @@ namespace Fsl
 #ifdef CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF
       LogDeviceInfo<cl_uint>("CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF: ", deviceId, CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF);
 #else
-      FSLLOG(Indent << "CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF: Unavailable");
 #endif
     }
 
@@ -834,7 +859,8 @@ namespace Fsl
 #ifdef CL_DEVICE_OPENCL_C_VERSION
       LogDeviceInfo<std::string>("CL_DEVICE_OPENCL_C_VERSION: ", deviceId, CL_DEVICE_OPENCL_C_VERSION);
 #else
-      FSLLOG(Indent << "CL_DEVICE_OPENCL_C_VERSION: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_OPENCL_C_VERSION: Unavailable");
 #endif
     }
 
@@ -845,7 +871,8 @@ namespace Fsl
 #ifdef CL_DEVICE_PARENT_DEVICE
       LogDeviceInfo<cl_device_id>("CL_DEVICE_PARENT_DEVICE: ", deviceId, CL_DEVICE_PARENT_DEVICE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_PARENT_DEVICE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PARENT_DEVICE: Unavailable");
 #endif
     }
 
@@ -856,7 +883,8 @@ namespace Fsl
 #ifdef CL_DEVICE_PARTITION_MAX_SUB_DEVICES
       LogDeviceInfo<cl_uint>("CL_DEVICE_PARTITION_MAX_SUB_DEVICES: ", deviceId, CL_DEVICE_PARTITION_MAX_SUB_DEVICES);
 #else
-      FSLLOG(Indent << "CL_DEVICE_PARTITION_MAX_SUB_DEVICES: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PARTITION_MAX_SUB_DEVICES: Unavailable");
 #endif
     }
 
@@ -868,14 +896,15 @@ namespace Fsl
       std::vector<cl_device_partition_property> container;
       if (!OpenCL::OpenCLHelper::TryGetDeviceInfo(deviceId, CL_DEVICE_PARTITION_PROPERTIES, container))
       {
-        FSLLOG(Indent << "CL_DEVICE_PARTITION_PROPERTIES: Unavailable");
+        Print("CL_DEVICE_PARTITION_PROPERTIES: Unavailable");
       }
       else
       {
-        FSLLOG(Indent << "CL_DEVICE_PARTITION_PROPERTIES: " << ToString(container));
+        Print("CL_DEVICE_PARTITION_PROPERTIES: {}", ToString(container));
       }
 #else
-      FSLLOG(Indent << "CL_DEVICE_PARTITION_PROPERTIES: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PARTITION_PROPERTIES: Unavailable");
 #endif
     }
 
@@ -886,7 +915,8 @@ namespace Fsl
 #ifdef CL_DEVICE_PARTITION_AFFINITY_DOMAIN
       LogDeviceInfo<cl_device_affinity_domain>("CL_DEVICE_PARTITION_AFFINITY_DOMAIN: ", deviceId, CL_DEVICE_PARTITION_AFFINITY_DOMAIN);
 #else
-      FSLLOG(Indent << "CL_DEVICE_PARTITION_AFFINITY_DOMAIN: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PARTITION_AFFINITY_DOMAIN: Unavailable");
 #endif
     }
 
@@ -898,14 +928,15 @@ namespace Fsl
       std::vector<cl_device_partition_property> container;
       if (!OpenCL::OpenCLHelper::TryGetDeviceInfo(deviceId, CL_DEVICE_PARTITION_TYPE, container))
       {
-        FSLLOG(Indent << "CL_DEVICE_PARTITION_TYPE: Unavailable");
+        Print("CL_DEVICE_PARTITION_TYPE: Unavailable");
       }
       else
       {
-        FSLLOG(Indent << "CL_DEVICE_PARTITION_TYPE: " << ToString(container));
+        Print("CL_DEVICE_PARTITION_TYPE: {}", ToString(container));
       }
 #else
-      FSLLOG(Indent << "CL_DEVICE_PARTITION_TYPE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PARTITION_TYPE: Unavailable");
 #endif
     }
 
@@ -915,7 +946,8 @@ namespace Fsl
 #ifdef CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS
       LogDeviceInfo<cl_uint>("CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS: ", deviceId, CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS);
 #else
-      FSLLOG(Indent << "CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS: Unavailable");
 #endif
     }
 
@@ -926,7 +958,8 @@ namespace Fsl
 #ifdef CL_DEVICE_PIPE_MAX_PACKET_SIZE
       LogDeviceInfo<cl_uint>("CL_DEVICE_PIPE_MAX_PACKET_SIZE: ", deviceId, CL_DEVICE_PIPE_MAX_PACKET_SIZE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_PIPE_MAX_PACKET_SIZE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PIPE_MAX_PACKET_SIZE: Unavailable");
 #endif
     }
 
@@ -937,7 +970,8 @@ namespace Fsl
 #ifdef CL_DEVICE_PLATFORM
       LogDeviceInfo<cl_platform_id>("CL_DEVICE_PLATFORM: ", deviceId, CL_DEVICE_PLATFORM);
 #else
-      FSLLOG(Indent << "CL_DEVICE_PLATFORM: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PLATFORM: Unavailable");
 #endif
     }
 
@@ -948,7 +982,8 @@ namespace Fsl
 #ifdef CL_DEVICE_PREFERRED_GLOBAL_ATOMIC_ALIGNMENT
       LogDeviceInfo<cl_uint>("CL_DEVICE_PREFERRED_GLOBAL_ATOMIC_ALIGNMENT: ", deviceId, CL_DEVICE_PREFERRED_GLOBAL_ATOMIC_ALIGNMENT);
 #else
-      FSLLOG(Indent << "CL_DEVICE_PREFERRED_GLOBAL_ATOMIC_ALIGNMENT: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PREFERRED_GLOBAL_ATOMIC_ALIGNMENT: Unavailable");
 #endif
     }
 
@@ -958,7 +993,8 @@ namespace Fsl
 #ifdef CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR
       LogDeviceInfo<cl_uint>("CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR: ", deviceId, CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR);
 #else
-      FSLLOG(Indent << "CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR: Unavailable");
 #endif
     }
 
@@ -969,7 +1005,8 @@ namespace Fsl
 #ifdef CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT
       LogDeviceInfo<cl_uint>("CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT: ", deviceId, CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT);
 #else
-      FSLLOG(Indent << "CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT: Unavailable");
 #endif
     }
 
@@ -980,7 +1017,8 @@ namespace Fsl
 #ifdef CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT
       LogDeviceInfo<cl_uint>("CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT: ", deviceId, CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT);
 #else
-      FSLLOG(Indent << "CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT: Unavailable");
 #endif
     }
 
@@ -991,7 +1029,8 @@ namespace Fsl
 #ifdef CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG
       LogDeviceInfo<cl_uint>("CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG: ", deviceId, CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG);
 #else
-      FSLLOG(Indent << "CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG: Unavailable");
 #endif
     }
 
@@ -1002,7 +1041,8 @@ namespace Fsl
 #ifdef CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT
       LogDeviceInfo<cl_uint>("CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT: ", deviceId, CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT);
 #else
-      FSLLOG(Indent << "CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT: Unavailable");
 #endif
     }
 
@@ -1013,7 +1053,8 @@ namespace Fsl
 #ifdef CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE
       LogDeviceInfo<cl_uint>("CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE: ", deviceId, CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE: Unavailable");
 #endif
     }
 
@@ -1024,7 +1065,8 @@ namespace Fsl
 #ifdef CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF
       LogDeviceInfo<cl_uint>("CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF: ", deviceId, CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF);
 #else
-      FSLLOG(Indent << "CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF: Unavailable");
 #endif
     }
 
@@ -1034,7 +1076,8 @@ namespace Fsl
 #ifdef CL_DEVICE_PRINTF_BUFFER_SIZE
       LogDeviceInfo<std::size_t>("CL_DEVICE_PRINTF_BUFFER_SIZE: ", deviceId, CL_DEVICE_PRINTF_BUFFER_SIZE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_PRINTF_BUFFER_SIZE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PRINTF_BUFFER_SIZE: Unavailable");
 #endif
     }
 
@@ -1044,7 +1087,8 @@ namespace Fsl
 #ifdef CL_DEVICE_PREFERRED_INTEROP_USER_SYNC
       LogDeviceInfo<cl_bool>("CL_DEVICE_PREFERRED_INTEROP_USER_SYNC: ", deviceId, CL_DEVICE_PREFERRED_INTEROP_USER_SYNC);
 #else
-      FSLLOG(Indent << "CL_DEVICE_PREFERRED_INTEROP_USER_SYNC: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PREFERRED_INTEROP_USER_SYNC: Unavailable");
 #endif
     }
 
@@ -1055,7 +1099,8 @@ namespace Fsl
 #ifdef CL_DEVICE_PREFERRED_LOCAL_ATOMIC_ALIGNMENT
       LogDeviceInfo<cl_uint>("CL_DEVICE_PREFERRED_LOCAL_ATOMIC_ALIGNMENT: ", deviceId, CL_DEVICE_PREFERRED_LOCAL_ATOMIC_ALIGNMENT);
 #else
-      FSLLOG(Indent << "CL_DEVICE_PREFERRED_LOCAL_ATOMIC_ALIGNMENT: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PREFERRED_LOCAL_ATOMIC_ALIGNMENT: Unavailable");
 #endif
     }
 
@@ -1066,7 +1111,8 @@ namespace Fsl
 #ifdef CL_DEVICE_PREFERRED_PLATFORM_ATOMIC_ALIGNMENT
       LogDeviceInfo<cl_uint>("CL_DEVICE_PREFERRED_PLATFORM_ATOMIC_ALIGNMENT: ", deviceId, CL_DEVICE_PREFERRED_PLATFORM_ATOMIC_ALIGNMENT);
 #else
-      FSLLOG(Indent << "CL_DEVICE_PREFERRED_PLATFORM_ATOMIC_ALIGNMENT: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PREFERRED_PLATFORM_ATOMIC_ALIGNMENT: Unavailable");
 #endif
     }
 
@@ -1077,7 +1123,8 @@ namespace Fsl
 #ifdef CL_DEVICE_PROFILE
       LogDeviceInfo<std::string>("CL_DEVICE_PROFILE: ", deviceId, CL_DEVICE_PROFILE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_PROFILE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PROFILE: Unavailable");
 #endif
     }
 
@@ -1088,7 +1135,8 @@ namespace Fsl
 #ifdef CL_DEVICE_PROFILING_TIMER_RESOLUTION
       LogDeviceInfo<std::size_t>("CL_DEVICE_PROFILING_TIMER_RESOLUTION: ", deviceId, CL_DEVICE_PROFILING_TIMER_RESOLUTION);
 #else
-      FSLLOG(Indent << "CL_DEVICE_PROFILING_TIMER_RESOLUTION: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_PROFILING_TIMER_RESOLUTION: Unavailable");
 #endif
     }
 
@@ -1099,7 +1147,8 @@ namespace Fsl
 #ifdef CL_DEVICE_QUEUE_ON_DEVICE_MAX_SIZE
       LogDeviceInfo<cl_uint>("CL_DEVICE_QUEUE_ON_DEVICE_MAX_SIZE: ", deviceId, CL_DEVICE_QUEUE_ON_DEVICE_MAX_SIZE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_QUEUE_ON_DEVICE_MAX_SIZE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_QUEUE_ON_DEVICE_MAX_SIZE: Unavailable");
 #endif
     }
 
@@ -1110,7 +1159,8 @@ namespace Fsl
 #ifdef CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE
       LogDeviceInfo<cl_uint>("CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE: ", deviceId, CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE);
 #else
-      FSLLOG(Indent << "CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE: Unavailable");
 #endif
     }
 
@@ -1121,7 +1171,8 @@ namespace Fsl
 #ifdef CL_DEVICE_QUEUE_ON_DEVICE_PROPERTIES
       LogDeviceInfo<cl_command_queue_properties>("CL_DEVICE_QUEUE_ON_DEVICE_PROPERTIES: ", deviceId, CL_DEVICE_QUEUE_ON_DEVICE_PROPERTIES);
 #else
-      FSLLOG(Indent << "CL_DEVICE_QUEUE_ON_DEVICE_PROPERTIES: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_QUEUE_ON_DEVICE_PROPERTIES: Unavailable");
 #endif
     }
 
@@ -1132,7 +1183,8 @@ namespace Fsl
 #ifdef CL_DEVICE_QUEUE_ON_HOST_PROPERTIES
       LogDeviceInfo<cl_command_queue_properties>("CL_DEVICE_QUEUE_ON_HOST_PROPERTIES: ", deviceId, CL_DEVICE_QUEUE_ON_HOST_PROPERTIES);
 #else
-      FSLLOG(Indent << "CL_DEVICE_QUEUE_ON_HOST_PROPERTIES: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_QUEUE_ON_HOST_PROPERTIES: Unavailable");
 #endif
     }
 
@@ -1143,7 +1195,8 @@ namespace Fsl
 #ifdef CL_DEVICE_QUEUE_PROPERTIES
       LogDeviceInfo<cl_command_queue_properties>("CL_DEVICE_QUEUE_PROPERTIES: ", deviceId, CL_DEVICE_QUEUE_PROPERTIES);
 #else
-      FSLLOG(Indent << "CL_DEVICE_QUEUE_PROPERTIES: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_QUEUE_PROPERTIES: Unavailable");
 #endif
     }
 
@@ -1154,7 +1207,8 @@ namespace Fsl
 #ifdef CL_DEVICE_REFERENCE_COUNT
       LogDeviceInfo<cl_uint>("CL_DEVICE_REFERENCE_COUNT: ", deviceId, CL_DEVICE_REFERENCE_COUNT);
 #else
-      FSLLOG(Indent << "CL_DEVICE_REFERENCE_COUNT: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_REFERENCE_COUNT: Unavailable");
 #endif
     }
 
@@ -1165,7 +1219,8 @@ namespace Fsl
 #ifdef CL_DEVICE_SINGLE_FP_CONFIG
       LogDeviceInfo<cl_device_fp_config>("CL_DEVICE_SINGLE_FP_CONFIG: ", deviceId, CL_DEVICE_SINGLE_FP_CONFIG);
 #else
-      FSLLOG(Indent << "CL_DEVICE_SINGLE_FP_CONFIG: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_SINGLE_FP_CONFIG: Unavailable");
 #endif
     }
 
@@ -1176,7 +1231,8 @@ namespace Fsl
 #ifdef CL_DEVICE_SPIR_VERSIONS
       LogGetDeviceInfo<std::string>("CL_DEVICE_SPIR_VERSIONS: ", deviceId, CL_DEVICE_SPIR_VERSIONS);
 #else
-      FSLLOG(Indent << "CL_DEVICE_SPIR_VERSIONS: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_SPIR_VERSIONS: Unavailable");
 #endif
     }
 
@@ -1187,7 +1243,8 @@ namespace Fsl
 #ifdef CL_DEVICE_SUBGROUP_INDEPENDENT_FORWARD_PROGRESS
       LogDeviceInfo<cl_bool>("CL_DEVICE_SUBGROUP_INDEPENDENT_FORWARD_PROGRESS: ", deviceId, CL_DEVICE_SUBGROUP_INDEPENDENT_FORWARD_PROGRESS);
 #else
-      FSLLOG(Indent << "CL_DEVICE_SUBGROUP_INDEPENDENT_FORWARD_PROGRESS: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_SUBGROUP_INDEPENDENT_FORWARD_PROGRESS: Unavailable");
 #endif
     }
 
@@ -1198,7 +1255,8 @@ namespace Fsl
 #ifdef CL_DEVICE_SVM_CAPABILITIES
       LogDeviceInfo<cl_device_svm_capabilities>("CL_DEVICE_SVM_CAPABILITIES: ", deviceId, CL_DEVICE_SVM_CAPABILITIES);
 #else
-      FSLLOG(Indent << "CL_DEVICE_SVM_CAPABILITIES: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_SVM_CAPABILITIES: Unavailable");
 #endif
     }
 
@@ -1209,7 +1267,8 @@ namespace Fsl
 #ifdef CL_DEVICE_TERMINATE_CAPABILITY_KHR
       LogDeviceInfo<cl_device_terminate_capability_khr>("CL_DEVICE_TERMINATE_CAPABILITY_KHR: ", deviceId, CL_DEVICE_TERMINATE_CAPABILITY_KHR);
 #else
-      FSLLOG(Indent << "CL_DEVICE_TERMINATE_CAPABILITY_KHR: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_TERMINATE_CAPABILITY_KHR: Unavailable");
 #endif
     }
 
@@ -1218,17 +1277,18 @@ namespace Fsl
     inline void Log_CL_DEVICE_TYPE(const cl_device_id deviceId)
     {
 #ifdef CL_DEVICE_TYPE
-      cl_device_type result;
+      cl_device_type result = 0;
       if (!OpenCL::OpenCLHelper::TryGetDeviceInfo<cl_device_type>(deviceId, CL_DEVICE_TYPE, result))
       {
-        FSLLOG(Indent << "CL_DEVICE_TYPE: Unavailable");
+        Print("CL_DEVICE_TYPE: Unavailable");
       }
       else
       {
-        FSLLOG(Indent << "CL_DEVICE_TYPE: " << RapidOpenCL1::Debug::DeviceTypeTostring(result));
+        Print("CL_DEVICE_TYPE: {}", RapidOpenCL1::Debug::DeviceTypeTostring(result));
       }
 #else
-      FSLLOG(Indent << "CL_DEVICE_TYPE: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_TYPE: Unavailable");
 #endif
     }
 
@@ -1238,7 +1298,8 @@ namespace Fsl
 #ifdef CL_DEVICE_VENDOR
       LogDeviceInfo<std::string>("CL_DEVICE_VENDOR: ", deviceId, CL_DEVICE_VENDOR);
 #else
-      FSLLOG(Indent << "CL_DEVICE_VENDOR: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_VENDOR: Unavailable");
 #endif
     }
 
@@ -1249,7 +1310,8 @@ namespace Fsl
 #ifdef CL_DEVICE_VENDOR_ID
       LogDeviceInfo<cl_uint>("CL_DEVICE_VENDOR_ID: ", deviceId, CL_DEVICE_VENDOR_ID);
 #else
-      FSLLOG(Indent << "CL_DEVICE_VENDOR_ID: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_VENDOR_ID: Unavailable");
 #endif
     }
 
@@ -1260,7 +1322,8 @@ namespace Fsl
 #ifdef CL_DEVICE_VERSION
       LogDeviceInfo<std::string>("CL_DEVICE_VERSION: ", deviceId, CL_DEVICE_VERSION);
 #else
-      FSLLOG(Indent << "CL_DEVICE_VERSION: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DEVICE_VERSION: Unavailable");
 #endif
     }
 
@@ -1271,7 +1334,8 @@ namespace Fsl
 #ifdef CL_DRIVER_VERSION
       LogDeviceInfo<std::string>("CL_DRIVER_VERSION: ", deviceId, CL_DRIVER_VERSION);
 #else
-      FSLLOG(Indent << "CL_DRIVER_VERSION: Unavailable");
+      FSL_PARAM_NOT_USED(deviceId);
+      Print("CL_DRIVER_VERSION: Unavailable");
 #endif
     }
   };

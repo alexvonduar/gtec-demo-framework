@@ -29,16 +29,11 @@
  *
  ****************************************************************************************************************************************************/
 
-#include <cassert>
-#include <cstdlib>
-#include <deque>
-#include <iostream>
-#include <csignal>
 #include <FslBase/ExceptionMessageFormatter.hpp>
 #include <FslBase/Getopt/OptionParser.hpp>
 #include <FslBase/Getopt/OptionBaseValues.hpp>
-#include <FslBase/Log/BasicLog.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Core.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/String/StringParseUtil.hpp>
 #include <FslDemoApp/Base/ADemoOptionParser.hpp>
 #include <FslDemoHost/Base/ADemoHostOptionParser.hpp>
@@ -49,13 +44,19 @@
 #include <FslDemoPlatform/DemoHostManager.hpp>
 #include <FslDemoPlatform/Setup/DemoBasicSetup.hpp>
 #include <FslDemoPlatform/Setup/DemoSetupManager.hpp>
-#include "DemoSignalHandler.hpp"
 #include <FslDemoPlatform/DemoHostManagerOptionParser.hpp>
 #include <FslService/Impl/ServiceFramework.hpp>
 #include <FslService/Impl/ServiceOptionParserDeque.hpp>
 #include <FslService/Impl/Threading/IServiceHostLooper.hpp>
+#include <cassert>
+#include <csignal>
+#include <cstdlib>
+#include <array>
 #include <cstring>
+#include <deque>
+#include <memory>
 #include <vector>
+#include "DemoSignalHandler.hpp"
 
 namespace Fsl
 {
@@ -63,14 +64,14 @@ namespace Fsl
   {
     const char* g_title = "DemoFramework";
     // since a C++ string is const char* we do a char array here
-    char g_normalVerbosityArgument[] = {'-', 'v', 0};
+    std::array<char, 3> g_normalVerbosityArgument = {'-', 'v', 0};
 
     bool TryParseVerbosityLevel(const char* pszArgument, uint32_t& rCount)
     {
       assert(pszArgument != nullptr);
       const char* pszSrc = pszArgument;
       rCount = 0;
-      while (*pszSrc != 0 && *pszSrc == 'v')
+      while (*pszSrc == 'v')
       {
         ++rCount;
         ++pszSrc;
@@ -88,14 +89,14 @@ namespace Fsl
         {
           if (strncmp(rArgument, "-v", 2) == 0)
           {
-            uint32_t count;    // +1 to skip the leading '-'
+            uint32_t count = 0;    // +1 to skip the leading '-'
             if (TryParseVerbosityLevel(rArgument + 1, count))
             {
               verbosityLevel += count;
               if (verbosityLevel > 1)
               {
                 // The other option parse we use dont support the '-vvvv' style to replace the fancy one with a normal verbose
-                rArgument = g_normalVerbosityArgument;
+                rArgument = g_normalVerbosityArgument.data();
               }
             }
           }
@@ -142,13 +143,13 @@ namespace Fsl
       }
       catch (const std::exception& ex)
       {
-        FSLLOG_ERROR("Input argument parsing failed with: " << ex.what());
-        return OptionParser::ParseResult(OptionParser::Result::Failed, 0);
+        FSLLOG3_ERROR("Input argument parsing failed with: {}", ex.what());
+        return {OptionParser::Result::Failed, 0};
       }
       catch (...)
       {
-        FSLBASICLOG_ERROR("A critical error occurred during input argument parsing.");
-        return OptionParser::ParseResult(OptionParser::Result::Failed, 0);
+        FSLLOG3_ERROR("A critical error occurred during input argument parsing.");
+        return {OptionParser::Result::Failed, 0};
       }
     }
 
@@ -190,16 +191,22 @@ namespace Fsl
         switch (verbosityLevel)
         {
         case 1:
-          Fsl::Logger::SetLogLevel(LogType::Verbose);
+          Fsl::LogConfig::SetLogLevel(LogType::Verbose);
           break;
         case 2:
-          Fsl::Logger::SetLogLevel(LogType::Verbose2);
+          Fsl::LogConfig::SetLogLevel(LogType::Verbose2);
           break;
         case 3:
-          Fsl::Logger::SetLogLevel(LogType::Verbose3);
+          Fsl::LogConfig::SetLogLevel(LogType::Verbose3);
+          break;
+        case 4:
+          Fsl::LogConfig::SetLogLevel(LogType::Verbose4);
+          break;
+        case 5:
+          Fsl::LogConfig::SetLogLevel(LogType::Verbose5);
           break;
         default:
-          Fsl::Logger::SetLogLevel(LogType::Verbose4);
+          Fsl::LogConfig::SetLogLevel(LogType::Verbose6);
           break;
         }
       }
@@ -238,7 +245,7 @@ namespace Fsl
       // This really should not happen, but just check anyway
       if (!serviceProvider)
       {
-        FSLBASICLOG_ERROR("ServiceProvider not present");
+        FSLLOG3_ERROR("ServiceProvider not present");
         return EXIT_FAILURE;
       }
 
@@ -252,24 +259,24 @@ namespace Fsl
         demoSetup.Host.OptionParser->SetNativeWindowTag(demoRunnerConfig.NativeWindowTag);
 
         // Initialize the demo
-        demoHostManager.reset(new DemoHostManager(demoSetup, demoHostManagerOptionParser));
+        demoHostManager = std::make_unique<DemoHostManager>(demoSetup, demoHostManagerOptionParser);
       }
       catch (const std::exception& ex)
       {
         std::string message;
         if (rExceptionMessageFormatter.TryFormatException(ex, message))
         {
-          FSLBASICLOG_ERROR(message);
+          FSLLOG3_ERROR(message);
         }
         else
         {
-          FSLLOG_ERROR("demo setup failed with: " << ex.what());
+          FSLLOG3_ERROR("demo setup failed with: {}", ex.what());
         }
         return EXIT_FAILURE;
       }
       catch (...)
       {
-        FSLBASICLOG_ERROR("A critical error occurred in the demo setup");
+        FSLLOG3_ERROR("A critical error occurred in the demo setup");
         return EXIT_FAILURE;
       }
 
@@ -283,7 +290,7 @@ namespace Fsl
       return returnValue;
     }
 
-
+    // NOLINTNEXTLINE(modernize-avoid-c-arrays)
     int RunNow(int argc, char* argv[], const DemoRunnerConfig& demoRunnerConfig, ExceptionMessageFormatter& rExceptionMessageFormatter)
     {
       const std::size_t argumentCount = (argc >= 0 && argv != nullptr) ? static_cast<std::size_t>(argc) : 0;
@@ -297,6 +304,7 @@ namespace Fsl
     }
   }
 
+  // NOLINTNEXTLINE(modernize-avoid-c-arrays)
   int RunDemo(int argc, char* argv[], const DemoRunnerConfig& demoRunnerConfig)
   {
     if (demoRunnerConfig.UseDefaultSignalHandlers)
@@ -316,17 +324,17 @@ namespace Fsl
       std::string message;
       if (exceptionMessageFormatter.TryFormatException(ex, message))
       {
-        FSLBASICLOG_ERROR(message);
+        FSLLOG3_ERROR("A exception occurred: {}", message);
       }
       else
       {
-        FSLBASICLOG_ERROR(ex.what());
+        FSLLOG3_ERROR("A exception occurred: {}", ex.what());
       }
       return EXIT_FAILURE;
     }
     catch (...)
     {
-      FSLBASICLOG_ERROR("A critical error occurred.");
+      FSLLOG3_ERROR("A critical error occurred.");
       return EXIT_FAILURE;
     }
   }

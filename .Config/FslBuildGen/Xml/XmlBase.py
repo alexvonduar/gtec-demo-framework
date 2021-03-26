@@ -35,6 +35,7 @@ from typing import Optional
 import xml.etree.ElementTree as ET
 from FslBuildGen.DataTypes import BoolStringHelper
 from FslBuildGen.Log import Log
+from FslBuildGen.Version import Version
 from FslBuildGen.Xml.XmlBaseInfo import XmlBaseInfo
 from FslBuildGen.Xml.Exceptions import XmlException2
 from FslBuildGen.Xml.Exceptions import XmlFormatException
@@ -42,13 +43,14 @@ from FslBuildGen.Xml.Exceptions import XmlRequiredAttributeMissingException
 
 class XmlBase(XmlBaseInfo):
     def __init__(self, log: Log, xmlElement: ET.Element) -> None:
+        # pylint: disable=useless-super-delegation
         super().__init__(log, xmlElement)
 
 
     def _GetElement(self, xmlElement: ET.Element, elementName: str) -> ET.Element:
         foundElement = xmlElement.find(elementName)
         if foundElement is None:
-            raise XmlException2(xmlElement, "Could not locate the expected {0} element".format(elementName))
+            raise XmlException2("Could not locate the expected {0} element".format(elementName))
         return foundElement
 
 
@@ -103,3 +105,15 @@ class XmlBase(XmlBaseInfo):
         elif defaultValue is not None:
             return defaultValue
         raise XmlFormatException("{0} expects a value of either 'true' or 'false' not '{1}'".format(attribName, strValue))
+
+
+    def _TryReadAttribAsVersion(self, xmlElement: ET.Element, attribName: str,
+                                defaultValue: Optional[Version] = None) -> Optional[Version]:
+        """ Read the attrib if its available, else return defaultValue """
+        strValue = self._TryReadAttrib(xmlElement, attribName, None)
+        if strValue is not None:
+            res = Version.TryFromString(strValue)
+            if res is None:
+                raise XmlFormatException("{0} expects a value in the format 'major[.minor[.patch[.tweak]]]' not '{1}'".format(attribName, strValue))
+            return res
+        return defaultValue

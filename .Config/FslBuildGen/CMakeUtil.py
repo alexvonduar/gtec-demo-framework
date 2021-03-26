@@ -43,11 +43,15 @@ class CMakeVersion(object):
         self.Minor = minor
         self.Build = build
 
-    #def __eq__(self, rhs: 'CMakeVersion') -> bool:
-    #    return (self.Major == rhs.Major and self.Minor == rhs.Minor and self.Build == rhs.Build)
+    def __eq__(self, rhs: object) -> bool:
+        if not isinstance(rhs, CMakeVersion):
+            return NotImplemented
+        return (self.Major == rhs.Major and self.Minor == rhs.Minor and self.Build == rhs.Build)
 
-    #def __ne__(self, rhs: 'CMakeVersion') -> bool:
-    #    return (self.Major != rhs.Major or self.Minor != rhs.Minor or self.Build != rhs.Build)
+    def __ne__(self, rhs: object) -> bool:
+        if not isinstance(rhs, CMakeVersion):
+            return NotImplemented
+        return (self.Major != rhs.Major or self.Minor != rhs.Minor or self.Build != rhs.Build)
 
     def __lt__(self, rhs: 'CMakeVersion') -> bool:
         return ((self.Major < rhs.Major) or
@@ -69,6 +73,10 @@ class CMakeVersion(object):
                 (self.Major == rhs.Major and self.Minor > rhs.Minor) or
                 (self.Major == rhs.Major and self.Minor == rhs.Minor and self.Build >= rhs.Build))
 
+    def __str__(self) -> str:
+        return "{0}.{1}.{2}".format(self.Major, self.Minor, self.Build)
+
+
 class CMakeUtil(object):
     @staticmethod
     def GetMinimumVersion() -> CMakeVersion:
@@ -78,15 +86,16 @@ class CMakeUtil(object):
     def RunCommand(cmd: List[str]) -> str:
         try:
             with subprocess.Popen(cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, universal_newlines=True) as proc:
-                verStr = proc.stdout.read().strip()
-                proc.stdout.close()
+                verStr = proc.stdout.read().strip() if proc.stdout is not None else ""
+                if proc.stdout is not None:
+                    proc.stdout.close()
                 if proc.wait() != 0:
                     raise Exception("Failed to get CMake version (1).")
                 if not isinstance(verStr, str):
                     raise Exception("Failed to get CMake version (2).")
                 return verStr
-        except OSError as e:
-            raise Exception("Failed to get CMake version (3).")
+        except OSError:
+            raise Exception("Failed to get CMake version (3)")
 
 
     @staticmethod
@@ -101,7 +110,7 @@ class CMakeUtil(object):
         exeName = PlatformUtil.GetPlatformDependentExecuteableName("cmake", PlatformUtil.DetectBuildPlatformType())
         path = IOUtil.TryFindExecutable(exeName)
         if path is None:
-            raise Exception("Could not locate cmake in path")
+            raise Exception("Could not locate cmake in path. Please install cmake 3.10.2+ (https://cmake.org/) as it is used to generate build files.")
         cmd = [path, "--version"]
         version = CMakeUtil.RunCommand(cmd)
         versionString = "cmake version "

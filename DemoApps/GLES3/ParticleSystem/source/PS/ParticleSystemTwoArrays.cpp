@@ -30,21 +30,22 @@
  ****************************************************************************************************************************************************/
 
 #include "ParticleSystemTwoArrays.hpp"
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslDemoApp/Base/DemoTime.hpp>
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <FslBase/System/HighResolutionTimer.hpp>
+#include <utility>
 
 namespace Fsl
 {
-  ParticleSystemTwoArrays::ParticleSystemTwoArrays(const std::shared_ptr<IParticleDraw>& particleDraw, const std::size_t capacity)
+  ParticleSystemTwoArrays::ParticleSystemTwoArrays(std::shared_ptr<IParticleDraw> particleDraw, const std::size_t capacity)
     : m_particles1(capacity)
     , m_particles2(capacity)
     , m_pCurrent(m_particles1.data())
     , m_pOld(m_particles2.data())
-    , m_particleDraw(particleDraw)
+    , m_particleDraw(std::move(particleDraw))
     , m_particleCount(0)
   {
   }
@@ -109,7 +110,7 @@ namespace Fsl
     m_pOld = pParticles;
 
     // auto end = timer.GetTime();
-    // FSLLOG("ParticleSystem update time: " << end - start);
+    // FSLLOG3_INFO(  "ParticleSystem update time: " << end - start);
   }
 
   void ParticleSystemTwoArrays::Draw(const ParticleDrawContext& context)

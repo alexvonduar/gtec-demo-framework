@@ -30,7 +30,7 @@
  ****************************************************************************************************************************************************/
 
 #include "MultipleViewportsFractalShader.hpp"
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslUtil/OpenGLES3/Exceptions.hpp>
 #include <FslUtil/OpenGLES3/GLCheck.hpp>
 #include <Shared/FractalShader/OptionParser.hpp>
@@ -67,7 +67,7 @@ namespace Fsl
   }
 
 
-  void MultipleViewportsFractalShader::Draw(const DemoTime& demoTime)
+  void MultipleViewportsFractalShader::Draw(const DemoTime& /*demoTime*/)
   {
     glClear(GL_COLOR_BUFFER_BIT);
 

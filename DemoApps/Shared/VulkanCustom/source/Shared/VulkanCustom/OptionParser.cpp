@@ -31,7 +31,7 @@
 
 #include <Shared/VulkanCustom/OptionParser.hpp>
 #include <FslBase/BasicTypes.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/Math/MathHelper.hpp>
 #include <FslBase/String/StringParseUtil.hpp>
 #include <FslBase/Getopt/OptionBaseValues.hpp>
@@ -74,16 +74,16 @@ namespace Fsl
   }
 
 
-  OptionParseResult::Enum OptionParser::OnParse(const int32_t cmdId, const char* const pszOptArg)
+  OptionParseResult OptionParser::OnParse(const int32_t cmdId, const StringViewLite& strOptArg)
   {
-    bool boolValue;
+    bool boolValue = false;
     switch (cmdId)
     {
     case CommandId::VkPhysicalDevice:
-      StringParseUtil::Parse(m_physicalDeviceIndex, pszOptArg);
+      StringParseUtil::Parse(m_physicalDeviceIndex, strOptArg);
       return OptionParseResult::Parsed;
     case CommandId::VkValidate:
-      StringParseUtil::Parse(boolValue, pszOptArg);
+      StringParseUtil::Parse(boolValue, strOptArg);
       m_validationLayer = boolValue ? OptionUserChoice::On : OptionUserChoice::Off;
       return OptionParseResult::Parsed;
     default:

@@ -31,7 +31,7 @@
 
 #include "OptionParserEx.hpp"
 #include <FslBase/BasicTypes.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/String/StringParseUtil.hpp>
 #include <FslBase/Getopt/OptionBaseValues.hpp>
 #include <FslBase/Exceptions.hpp>
@@ -66,7 +66,7 @@ namespace Fsl
   }
 
 
-  OptionParseResult::Enum OptionParserEx::OnParse(const int32_t cmdId, const char* const pszOptArg)
+  OptionParseResult OptionParserEx::OnParse(const int32_t cmdId, const StringViewLite& strOptArg)
   {
     switch (cmdId)
     {
@@ -77,7 +77,7 @@ namespace Fsl
       m_disableDisplayHDRCheck = true;
       return OptionParseResult::Parsed;
     default:
-      return OptionParser::OnParse(cmdId, pszOptArg);
+      return OptionParser::OnParse(cmdId, strOptArg);
     }
   }
 }

@@ -35,20 +35,21 @@ from typing import List
 import xml.etree.ElementTree as ET
 from FslBuildGen import Util
 from FslBuildGen.DataTypes import AccessType
-from FslBuildGen.Exceptions import UsageErrorException
+#from FslBuildGen.Exceptions import UsageErrorException
 from FslBuildGen.Log import Log
 from FslBuildGen.Xml import FakeXmlElementFactory
 from FslBuildGen.Xml.Exceptions import XmlUnsupportedPackageNameException
 from FslBuildGen.Xml.Exceptions import XmlUnsupportedSubPackageNameException
-from FslBuildGen.Xml.SubPackageSupportConfig import SubPackageSupportConfig
+from FslBuildGen.Xml.XmlBase import XmlBase
 from FslBuildGen.Xml.XmlGenFileDefine import XmlGenFileDefine
 from FslBuildGen.Xml.XmlGenFileDependency import XmlGenFileDependency
 from FslBuildGen.Xml.XmlGenFileExternalDependency import XmlGenFileExternalDependency
-from FslBuildGen.Xml.XmlBase import XmlBase
+from FslBuildGen.Xml.XmlGenFileExternalDependency import FakeXmlGenFileExternalDependencyCMakeFindModern
+from FslBuildGen.Xml.XmlGenFileFindPackage import XmlGenFileFindPackage
 
 
 class FakeXmlGenFileDependency(XmlGenFileDependency):
-    def __init__(self, log: Log, name: str, access: int) -> None:
+    def __init__(self, log: Log, name: str, access: AccessType) -> None:
         fakeXmlElementAttribs = {'Name': name, 'Access': AccessType.ToString(access)}
         fakeXmlElement = FakeXmlElementFactory.Create("FakeXmlGenFileDependency", fakeXmlElementAttribs)
         super().__init__(log, fakeXmlElement)
@@ -59,39 +60,46 @@ class FakeXmlGenFileDependency(XmlGenFileDependency):
 
 
 class XmlBase2(XmlBase):
-    def __init__(self, log: Log, xmlElement: ET.Element, subPackageSupport: SubPackageSupportConfig) -> None:
-        if not isinstance(subPackageSupport, SubPackageSupportConfig):
-            raise UsageErrorException("The support object was not of the correct type")
+    def __init__(self, log: Log, xmlElement: ET.Element) -> None:
         super().__init__(log, xmlElement)
-        self.SystemSubPackageSupport = subPackageSupport  # type: SubPackageSupportConfig
         self.ExternalDependencies = self.__GetXMLExternalDependencies(xmlElement)
         self.DirectDefines = self.__GetXMLDefines(xmlElement)
         self.DirectDependencies = self._GetXMLDependencies(xmlElement)
 
 
-    def BaseLoad(self, xmlElement: ET.Element, subPackageSupport: SubPackageSupportConfig) -> None:
-        self.SystemSubPackageSupport = subPackageSupport  # type: SubPackageSupportConfig
+    def BaseLoad(self, xmlElement: ET.Element) -> None:
         self.ExternalDependencies = self.__GetXMLExternalDependencies(xmlElement)
         self.DirectDefines = self.__GetXMLDefines(xmlElement)
         self.DirectDependencies = self._GetXMLDependencies(xmlElement)
-
-
-    def GetSubPackageSupport(self) -> SubPackageSupportConfig:
-        return self.SystemSubPackageSupport
-
 
     def __GetXMLExternalDependencies(self, xmlElement: ET.Element) -> List[XmlGenFileExternalDependency]:
         dependencies = []
-        if xmlElement != None:
+        if xmlElement is not None:
             for child in xmlElement:
                 if child.tag == 'ExternalDependency':
                     dependencies.append(XmlGenFileExternalDependency(self.Log, child))
+
+        # find package is just a alias for a specific ExternalDependency type
+        findPackageDependencies = self.__GetXMLFindPackageDependencies(xmlElement)
+        for findPackage in findPackageDependencies:
+            dependencies.append(self.ConvertToXmlGenFileExternalDependency(findPackage))
         return dependencies
+
+    def __GetXMLFindPackageDependencies(self, xmlElement: ET.Element) -> List[XmlGenFileFindPackage]:
+        dependencies = []
+        if xmlElement is not None:
+            for child in xmlElement:
+                if child.tag == 'FindPackage':
+                    dependencies.append(XmlGenFileFindPackage(self.Log, child))
+        return dependencies
+
+    def ConvertToXmlGenFileExternalDependency(self, value: XmlGenFileFindPackage) -> XmlGenFileExternalDependency:
+        return FakeXmlGenFileExternalDependencyCMakeFindModern(self.Log, value.Name, value.Version, value.TargetName, value.Path, value.IfCondition)
 
 
     def __GetXMLDefines(self, xmlElement: ET.Element) -> List[XmlGenFileDefine]:
         dependencies = []
-        if xmlElement != None:
+        if xmlElement is not None:
             for child in xmlElement:
                 if child.tag == 'Define':
                     dependencies.append(XmlGenFileDefine(self.Log, child))
@@ -102,9 +110,8 @@ class XmlBase2(XmlBase):
 
 
     def _ValidateName(self, xmlElement: ET.Element, name: str) -> None:
-        allowSubPackages = self.SystemSubPackageSupport.AllowSubPackages    # type: bool
-        if not Util.IsValidPackageName(name, allowSubPackages):
-            if allowSubPackages and name.find('..') >= 0:
+        if not Util.IsValidUnresolvedPackageName(name):
+            if name.find('..') >= 0:
                 raise XmlUnsupportedSubPackageNameException(xmlElement, name)
             else:
                 raise XmlUnsupportedPackageNameException(xmlElement, name)
@@ -120,5 +127,5 @@ class XmlBase2(XmlBase):
                     elements.append(xmlDep)
         return elements
 
-    def _CreateFakeXMLDependencies(self, dependencyName: str, access: int = AccessType.Public) -> FakeXmlGenFileDependency:
+    def _CreateFakeXMLDependencies(self, dependencyName: str, access: AccessType = AccessType.Public) -> FakeXmlGenFileDependency:
         return FakeXmlGenFileDependency(self.Log, dependencyName, access)

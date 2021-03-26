@@ -30,29 +30,32 @@
  ****************************************************************************************************************************************************/
 
 #include "T3DStressTest.hpp"
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/Math/Matrix.hpp>
 #include <FslBase/Math/MathHelper.hpp>
-#include <FslUtil/OpenGLES3/Exceptions.hpp>
-#include <FslUtil/OpenGLES3/GLCheck.hpp>
+#include <FslBase/System/Threading/Thread.hpp>
 #include <FslGraphics3D/Procedural/MeshBuilder.hpp>
 #include <FslGraphics3D/Procedural/SegmentedQuadGenerator.hpp>
 #include <FslGraphics/Bitmap/Bitmap.hpp>
 #include <FslGraphics/TextureRectangle.hpp>
 #include <FslGraphics/Vertices/VertexPositionNormalTexture.hpp>
+#include <FslUtil/OpenGLES3/Exceptions.hpp>
+#include <FslUtil/OpenGLES3/GLCheck.hpp>
+#include <FslUtil/OpenGLES3/TextureUtil.hpp>
+#include <Shared/T3DStressTest/FurTexture.hpp>
+#include <Shared/T3DStressTest/OptionParser.hpp>
 #include <GLES3/gl3.h>
 #include <algorithm>
 #include <ctime>
 #include <iostream>
-#include "FurTexture.hpp"
 #include "Shader/ShaderBase.hpp"
-#include "OptionParser.hpp"
 
 namespace Fsl
 {
   namespace
   {
     using namespace Procedural;
+    using namespace GLES3;
 
     void CreateInstancedMesh(BasicMesh& rMesh, const std::size_t desiredInstanceCount, const bool shareInstanceVertices)
     {
@@ -64,16 +67,65 @@ namespace Fsl
 
       if (instances != desiredInstanceCount)
       {
-        FSLLOG_WARNING("Created: " << instances << " instead of the requested: " << desiredInstanceCount);
+        FSLLOG3_WARNING("Created: {} instead of the requested: {}", instances, desiredInstanceCount);
       }
+    }
+
+    //! Create the main texture
+    GLTexture CreateMainTexture(const std::shared_ptr<IContentManager>& contentManager)
+    {
+      Bitmap bitmap;
+      contentManager->Read(bitmap, "Seamless.jpg", PixelFormat::R8G8B8A8_UNORM);
+      GLTextureParameters texParams1(GL_LINEAR, GL_LINEAR, GL_REPEAT, GL_REPEAT);
+      return GLTexture(bitmap, texParams1);
+    }
+
+    //! Create the fur 'density' bitmap
+    GLTexture CreateFurDensityTexture(const int furTextureDim, const float hairDensity, const int layerCount)
+    {
+      // Create the fur 'density' bitmap
+      const std::vector<uint8_t> furBitmapContent = FurTexture::Generate(furTextureDim, furTextureDim, hairDensity, layerCount);
+      const RawBitmap furBitmap(furBitmapContent.data(), furTextureDim, furTextureDim, PixelFormat::R8G8B8A8_UNORM, BitmapOrigin::LowerLeft);
+      GLTextureParameters texParams(GL_NEAREST, GL_NEAREST, GL_REPEAT, GL_REPEAT);
+      return GLTexture(furBitmap, texParams);
+    }
+
+    Procedural::BasicMesh CreateMesh(const PxSize2D& tex1Size, const int textureRepeatCount, const Point2& vertexCount, int instanceCount,
+                                     const bool shareInstanceVertices, const bool useTriangleStrip)
+    {
+      TextureRectangle texRect(PxRectangle(0, 0, tex1Size.Width(), tex1Size.Height()), tex1Size);
+      const NativeTextureArea texArea(TextureUtil::CalcTextureArea(texRect, textureRepeatCount, textureRepeatCount));
+
+      BasicMesh mesh;
+      if (useTriangleStrip)
+      {
+        mesh = SegmentedQuadGenerator::GenerateStrip(Vector3::Zero(), 100, 100, vertexCount.X - 1, vertexCount.Y - 1, texArea, WindingOrder::CCW);
+      }
+      else
+      {
+        mesh = SegmentedQuadGenerator::GenerateList(Vector3::Zero(), 100, 100, vertexCount.X - 1, vertexCount.Y - 1, texArea, WindingOrder::CCW);
+      }
+
+      // OpenGL ES expects that the index count is <= 0xFFFF
+      if (mesh.GetIndexCount() > 0xFFFF)
+      {
+        throw NotSupportedException("Maximum IndexCount exceeded");
+      }
+
+      // Create instances if so desired
+      if (instanceCount > 1)
+      {
+        CreateInstancedMesh(mesh, instanceCount, shareInstanceVertices);
+      }
+      return mesh;
     }
   }
 
 
   T3DStressTest::T3DStressTest(const DemoAppConfig& config)
     : DemoAppGLES3(config)
-    , m_meshStuff()
-    , m_shaderMultiPass(*GetContentManager(), "", m_config.GetUseHighShaderPrecision(), m_config.GetLightCount())
+    , m_config(config.GetOptions<OptionParser>()->GetConfig())
+    , m_shaderMultiPass(*GetContentManager(), "MultiPass", m_config.GetUseHighShaderPrecision(), m_config.GetLightCount())
     , m_shaderInstanced(*GetContentManager(), "Instanced", m_config.GetUseHighShaderPrecision(), m_config.GetLightCount())
     , m_shaderWhite(*GetContentManager())
     , m_xAngle(0)
@@ -82,86 +134,62 @@ namespace Fsl
     , m_gravity(0, -1.0f, 0)
     , m_radians(0.0f)
   {
-    using namespace GLES3;
+    switch (m_config.GetRenderMode())
+    {
+    case RenderMode::MultiPass:
+      FSLLOG3_INFO("RenderMode: MultiPass");
+      break;
+    case RenderMode::Instanced:
+      FSLLOG3_INFO("RenderMode: Instanced");
+      break;
+    default:
+      break;
+    }
 
-    std::shared_ptr<OptionParser> options = config.GetOptions<OptionParser>();
-    m_config = options->GetConfig();
-
+    auto contentManager = GetContentManager();
     const int furTextureDim = m_config.GetFurTextureDimensions();
 
-
-    {    // Create the main texture (we use a scope here so we throw away the bitmap as soon as we don't need it)
-      Bitmap bitmap;
-      GetContentManager()->Read(bitmap, "Seamless.jpg", PixelFormat::R8G8B8A8_UNORM);
-      GLTextureParameters texParams1(GL_LINEAR, GL_LINEAR, GL_REPEAT, GL_REPEAT);
-      m_tex1.SetData(bitmap, texParams1);
-    }
-
-    // Create the fur 'density' bitmap
-    const std::vector<uint8_t> furBitmapContent =
-      FurTexture::Generate(furTextureDim, furTextureDim, m_config.GetHairDensity(), m_config.GetLayerCount());
-    const RawBitmap furBitmap(&furBitmapContent[0], furTextureDim, furTextureDim, PixelFormat::R8G8B8A8_UNORM, BitmapOrigin::LowerLeft);
-    GLTextureParameters texParams2(GL_NEAREST, GL_NEAREST, GL_REPEAT, GL_REPEAT);
-    m_tex2.SetData(furBitmap, texParams2);
-
+    m_resources.Tex1 = CreateMainTexture(contentManager);
+    m_resources.Tex2 = CreateFurDensityTexture(furTextureDim, m_config.GetHairDensity(), m_config.GetLayerCount());
 
     {
-      using namespace Procedural;
-      const Point2 tex1Size = m_tex1.GetSize();
-      TextureRectangle texRect(Rectangle(0, 0, tex1Size.X, tex1Size.Y), tex1Size);
-      const NativeTextureArea texArea(GLTexture::CalcTextureArea(texRect, m_config.GetTextureRepeatCount(), m_config.GetTextureRepeatCount()));
-
-      BasicMesh mesh;
-      if (m_config.GetUseTriangleStrip())
-      {
-        mesh = SegmentedQuadGenerator::GenerateStrip(Vector3::Zero(), 100, 100, m_config.GetVertexCountX() - 1, m_config.GetVertexCountY() - 1,
-                                                     texArea, WindingOrder::CCW);
-      }
-      else
-      {
-        mesh = SegmentedQuadGenerator::GenerateList(Vector3::Zero(), 100, 100, m_config.GetVertexCountX() - 1, m_config.GetVertexCountY() - 1,
-                                                    texArea, WindingOrder::CCW);
-      }
-
-      // OpenGL ES expects that the index count is <= 0xFFFF
-      assert(mesh.GetIndexCount() <= 0xFFFF);
-
-      // Create instances if so desired
-      if (m_config.GetInstanceCount() > 1)
-      {
-        CreateInstancedMesh(mesh, m_config.GetInstanceCount(), m_config.GetShareInstanceVertices());
-      }
-
-      // OpenGL ES expects that the index count is <= 0xFFFF
-      assert(mesh.GetIndexCount() <= 0xFFFF);
-
-      m_meshStuff.reset(new MeshStuff(mesh));
+      Point2 vertexCount(m_config.GetVertexCountX(), m_config.GetVertexCountY());
+      auto mesh = CreateMesh(m_resources.Tex1.GetSize(), m_config.GetTextureRepeatCount(), vertexCount, m_config.GetInstanceCount(),
+                             m_config.GetShareInstanceVertices(), m_config.GetUseTriangleStrip());
+      m_resources.MeshStuff = std::make_unique<MeshStuffRecord>(mesh);
     }
 
+    {
+      Vector3 lightDirection(-0.0f, -0.0f, -1.0f);
+      lightDirection.Normalize();
+      Vector3 lightColor(0.9f, 0.9f, 0.9f);
+      Vector3 ambientColor(0.2f, 0.2f, 0.2f);
+      // Vector3 ambientColor(0.5f, 0.5f, 0.5f);
 
-    Vector3 lightDirection(-0.0f, -0.0f, -1.0f);
-    lightDirection.Normalize();
-    Vector3 lightColor(0.9f, 0.9f, 0.9f);
-    Vector3 ambientColor(0.2f, 0.2f, 0.2f);
-    // Vector3 ambientColor(0.5f, 0.5f, 0.5f);
-
-    {    // Prepare the shader
-      ShaderBase::ScopedUse shaderScope(m_shaderMultiPass);
-      m_shaderMultiPass.SetTexture0(0);
-      m_shaderMultiPass.SetTexture1(1);
-      m_shaderMultiPass.SetMaxHairLength(m_config.GetHairLength());
-      m_shaderMultiPass.SetLightDirection(0, lightDirection);
-      m_shaderMultiPass.SetLightColor(0, lightColor);
-      m_shaderMultiPass.SetLightAmbientColor(ambientColor);
-    }
-    {    // Prepare the shader
-      ShaderBase::ScopedUse shaderScope(m_shaderInstanced);
-      m_shaderInstanced.SetTexture0(0);
-      m_shaderInstanced.SetTexture1(1);
-      m_shaderInstanced.SetMaxHairLength(m_config.GetHairLength());
-      m_shaderInstanced.SetLightDirection(0, lightDirection);
-      m_shaderInstanced.SetLightColor(0, lightColor);
-      m_shaderInstanced.SetLightAmbientColor(ambientColor);
+      {    // Prepare the shader
+        ShaderBase::ScopedUse shaderScope(m_shaderMultiPass);
+        m_shaderMultiPass.SetTexture0(0);
+        m_shaderMultiPass.SetTexture1(1);
+        m_shaderMultiPass.SetMaxHairLength(m_config.GetHairLength());
+        for (int i = 0; i < m_config.GetLightCount(); ++i)
+        {
+          m_shaderMultiPass.SetLightDirection(i, lightDirection);
+          m_shaderMultiPass.SetLightColor(i, lightColor);
+        }
+        m_shaderMultiPass.SetLightAmbientColor(ambientColor);
+      }
+      {    // Prepare the shader
+        ShaderBase::ScopedUse shaderScope(m_shaderInstanced);
+        m_shaderInstanced.SetTexture0(0);
+        m_shaderInstanced.SetTexture1(1);
+        m_shaderInstanced.SetMaxHairLength(m_config.GetHairLength());
+        for (int i = 0; i < m_config.GetLightCount(); ++i)
+        {
+          m_shaderInstanced.SetLightDirection(i, lightDirection);
+          m_shaderInstanced.SetLightColor(i, lightColor);
+        }
+        m_shaderInstanced.SetLightAmbientColor(ambientColor);
+      }
     }
   }
 
@@ -169,24 +197,21 @@ namespace Fsl
   T3DStressTest::~T3DStressTest() = default;
 
 
-  void T3DStressTest::FixedUpdate(const DemoTime& demoTime)
+  void T3DStressTest::FixedUpdate(const DemoTime& /*demoTime*/)
   {
-    const Point2 screenResolution = GetScreenResolution();
-
     Vector3 forceDirection(std::sin(m_radians), 0, 0);
     m_displacement = m_gravity + forceDirection;
 
     m_radians += 0.01f;
 
-    m_world = Matrix::CreateRotationX(MathHelper::TO_RADS * (m_xAngle / 100.0f));
-    m_world *= Matrix::CreateRotationY(MathHelper::TO_RADS * (m_yAngle / 100.0f));
-    m_world *= Matrix::CreateRotationZ(MathHelper::TO_RADS * (m_zAngle / 100.0f));
+    m_world = Matrix::CreateRotationX(MathHelper::TO_RADS * (float(m_xAngle) / 100.0f));
+    m_world *= Matrix::CreateRotationY(MathHelper::TO_RADS * (float(m_yAngle) / 100.0f));
+    m_world *= Matrix::CreateRotationZ(MathHelper::TO_RADS * (float(m_zAngle) / 100.0f));
 
     // Pull the camera back from the cube
     m_view = Matrix::CreateTranslation(0.0f, 0.0f, -m_config.GetCameraDistance());
 
-    m_perspective =
-      Matrix::CreatePerspectiveFieldOfView(MathHelper::ToRadians(45.0f), screenResolution.X / static_cast<float>(screenResolution.Y), 1, 100.0f);
+    m_perspective = Matrix::CreatePerspectiveFieldOfView(MathHelper::ToRadians(45.0f), GetWindowAspectRatio(), 1, 100.0f);
     m_MVP = m_world * m_view * m_perspective;
 
     // m_xAngle += 10;
@@ -220,7 +245,7 @@ namespace Fsl
   }
 
 
-  void T3DStressTest::Draw(const DemoTime& demoTime)
+  void T3DStressTest::Draw(const DemoTime& /*demoTime*/)
   {
     glEnable(GL_CULL_FACE);
     glFrontFace(GL_CCW);
@@ -243,11 +268,10 @@ namespace Fsl
 
     // Setup the texture
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_tex1.Get());
+    glBindTexture(GL_TEXTURE_2D, m_resources.Tex1.Get());
 
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, m_tex2.Get());
-
+    glBindTexture(GL_TEXTURE_2D, m_resources.Tex2.Get());
     bool bypassRender = false;
     if (m_config.GetToggleMinMax())
     {
@@ -255,8 +279,7 @@ namespace Fsl
       if ((result % 10) < 5)
       {
         bypassRender = true;
-        FSLLOG_WARNING("Thread sleep not implemented yet");
-        //    //FIX: Thread::Sleep(16);
+        Thread::SleepMilliseconds(16);
       }
     }
     if (!bypassRender)
@@ -265,7 +288,7 @@ namespace Fsl
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
       // Draw the fur mesh
-      if (m_config.GetRenderMode() == RenderMode::ES3MultiPass)
+      if (m_config.GetRenderMode() == RenderMode::MultiPass)
       {
         ShaderBase::ScopedUse shaderScope(m_shaderMultiPass);
 
@@ -274,10 +297,10 @@ namespace Fsl
         m_shaderMultiPass.SetProjection(m_perspective);
         m_shaderMultiPass.SetDisplacement(m_displacement);
 
-        float layerAdd = (m_config.GetLayerCount() > 1 ? 1.0f / (m_config.GetLayerCount() - 1) : 1);
+        float layerAdd = (m_config.GetLayerCount() > 1 ? 1.0f / float(m_config.GetLayerCount() - 1) : 1);
         float layer = 0.0f;
 
-        MeshRender& render = m_meshStuff->Render;
+        MeshRender& render = m_resources.MeshStuff->Render;
         render.Bind(m_shaderMultiPass);
         const int layerCount = m_config.GetLayerCount();
         for (int i = 0; i < layerCount; ++i)
@@ -291,7 +314,7 @@ namespace Fsl
       }
       else
       {
-        assert(m_config.GetRenderMode() == RenderMode::ES3Instanced);
+        assert(m_config.GetRenderMode() == RenderMode::Instanced);
         ShaderBase::ScopedUse shaderScope(m_shaderInstanced);
 
         m_shaderInstanced.SetWorld(m_world);
@@ -299,10 +322,10 @@ namespace Fsl
         m_shaderInstanced.SetProjection(m_perspective);
         m_shaderInstanced.SetDisplacement(m_displacement);
 
-        float layerAdd = (m_config.GetLayerCount() > 1 ? 1.0f / (m_config.GetLayerCount() - 1) : 1);
+        float layerAdd = (m_config.GetLayerCount() > 1 ? 1.0f / float(m_config.GetLayerCount() - 1) : 1);
         m_shaderInstanced.SetInstanceDistance(layerAdd);
 
-        MeshRender& render = m_meshStuff->Render;
+        MeshRender& render = m_resources.MeshStuff->Render;
         render.Bind(m_shaderInstanced);
         render.DrawInstanced(m_config.GetLayerCount());
         render.Unbind();
@@ -315,7 +338,7 @@ namespace Fsl
 
         m_shaderWhite.SetWorldViewProjection(m_MVP);
 
-        MeshRender& render = m_meshStuff->RenderNormals;
+        MeshRender& render = m_resources.MeshStuff->RenderNormals;
 
         render.Bind(m_shaderWhite);
         render.Draw();

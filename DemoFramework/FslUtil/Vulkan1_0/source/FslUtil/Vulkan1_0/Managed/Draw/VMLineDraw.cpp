@@ -30,7 +30,7 @@
  ****************************************************************************************************************************************************/
 
 #include <FslUtil/Vulkan1_0/Managed/Draw/VMLineDraw.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslUtil/Vulkan1_0/Util/MatrixUtil.hpp>
 #include <FslUtil/Vulkan1_0/Util/VMVertexBufferUtil.hpp>
 #include <array>
@@ -105,7 +105,7 @@ namespace Fsl
         allocInfo.descriptorSetCount = 1;
         allocInfo.pSetLayouts = descriptorSetLayout.GetPointer();
 
-        VkDescriptorSet descriptorSet;
+        VkDescriptorSet descriptorSet{};
         RapidVulkan::CheckError(vkAllocateDescriptorSets(descriptorPool.GetDevice(), &allocInfo, &descriptorSet), "vkAllocateDescriptorSets",
                                 __FILE__, __LINE__);
 
@@ -327,7 +327,7 @@ namespace Fsl
       }
       catch (const std::exception& ex)
       {
-        FSLLOG_ERROR("Exception: " << ex.what());
+        FSLLOG3_ERROR("Exception: {}", ex.what());
         Reset();
         throw ex;
       }
@@ -355,7 +355,7 @@ namespace Fsl
 
       if (m_dependentResources.IsValid)
       {
-        FSLLOG_WARNING("Resources were already allocated, freeing them, this could indicate that you forgot to free the resources earlier")
+        FSLLOG3_WARNING("Resources were already allocated, freeing them, this could indicate that you forgot to free the resources earlier")
         FreeResources();
       }
       m_dependentResources.IsValid = true;
@@ -403,7 +403,7 @@ namespace Fsl
     {
       if (!m_dependentResources.IsValid)
       {
-        FSLLOG_DEBUG_WARNING("Draw ignored, due to state");
+        FSLLOG3_DEBUG_WARNING("Draw ignored, due to state");
         return;
       }
 
@@ -430,8 +430,7 @@ namespace Fsl
       {
         std::size_t newCapacity = vertexCount;
         // Warn the developer in debug mode
-        FSLLOG_DEBUG_WARNING("Performance-issue: Resizing LineVertexBuffer from: " << rFrame.LineVertBuffer.GetVertexCount() << " to "
-                                                                                   << newCapacity);
+        FSLLOG3_DEBUG_WARNING("Performance-issue: Resizing LineVertexBuffer from: {} to {}", rFrame.LineVertBuffer.GetVertexCount(), newCapacity);
         // Dump the existing buffer and then create a new one
         rFrame.LineVertBuffer.Reset();
         rFrame.LineVertBuffer.Reset(m_resources.BufferManager, newCapacity, VertexPositionColor::GetVertexDeclaration());
@@ -449,8 +448,9 @@ namespace Fsl
 
       vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_dependentResources.PipelineRender.Get());
 
-      VkDeviceSize offsets[1] = {0};
-      vkCmdBindVertexBuffers(commandBuffer, VERTEX_BUFFER_BIND_ID, 1, rFrame.LineVertBuffer.GetBufferPointer(), offsets);
+      std::array<VkDeviceSize, 1> offsets = {0};
+      vkCmdBindVertexBuffers(commandBuffer, VERTEX_BUFFER_BIND_ID, static_cast<uint32_t>(offsets.size()), rFrame.LineVertBuffer.GetBufferPointer(),
+                             offsets.data());
 
       assert(vertexCount <= std::numeric_limits<uint32_t>::max());
       vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertexCount), 1, 0, 0);

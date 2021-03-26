@@ -33,9 +33,10 @@
 #include <FslSimpleUI/Base/Event/EventTypeId.hpp>
 #include <FslSimpleUI/Base/Event/WindowContentChangedEvent.hpp>
 #include <FslSimpleUI/Base/Event/WindowInputClickEvent.hpp>
+#include <FslSimpleUI/Base/Event/WindowMouseOverEvent.hpp>
 #include <FslSimpleUI/Base/Event/WindowSelectEvent.hpp>
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <cassert>
 
 namespace Fsl
@@ -58,15 +59,36 @@ namespace Fsl
     }
 
 
-    WindowEventPool::WindowEventPool() = default;
+    WindowEventPool::WindowEventPool()
+    {
+      GrowPool(m_poolWindowInputClickEvent, NUM_ENTRIES_TO_GROW);
+      GrowPool(m_poolWindowSelectEvent, NUM_ENTRIES_TO_GROW);
+      GrowPool(m_poolWindowContentChangedEvent, NUM_ENTRIES_TO_GROW);
+    }
 
 
     WindowEventPool::~WindowEventPool() = default;
 
 
+    std::shared_ptr<WindowMouseOverEvent> WindowEventPool::AcquireWindowMouseOverEvent(const int32_t sourceId, const int32_t sourceSubId,
+                                                                                       const EventTransactionState& state, const bool isRepeat,
+                                                                                       const PxPoint2& screenPositionPx)
+    {
+      if (m_poolWindowMouseOverEvent.empty())
+      {
+        GrowPool(m_poolWindowMouseOverEvent, NUM_ENTRIES_TO_GROW);
+      }
+
+      auto obj = m_poolWindowMouseOverEvent.front();
+      m_poolWindowMouseOverEvent.pop_front();
+      obj->SYS_Construct(sourceId, sourceSubId, state, isRepeat, screenPositionPx);
+      return obj;
+    }
+
+
     std::shared_ptr<WindowInputClickEvent> WindowEventPool::AcquireWindowInputClickEvent(const int32_t sourceId, const int32_t sourceSubId,
                                                                                          const EventTransactionState state, const bool isRepeat,
-                                                                                         const Vector2& screenPosition)
+                                                                                         const PxPoint2& screenPositionPx)
     {
       if (m_poolWindowInputClickEvent.empty())
       {
@@ -75,7 +97,7 @@ namespace Fsl
 
       auto obj = m_poolWindowInputClickEvent.front();
       m_poolWindowInputClickEvent.pop_front();
-      obj->SYS_Construct(sourceId, sourceSubId, state, isRepeat, screenPosition);
+      obj->SYS_Construct(sourceId, sourceSubId, state, isRepeat, screenPositionPx);
       return obj;
     }
 
@@ -128,6 +150,9 @@ namespace Fsl
 
       switch (event->GetEventTypeId())
       {
+      case EventTypeId::MouseOver:
+        Release(std::dynamic_pointer_cast<WindowMouseOverEvent>(event));
+        break;
       case EventTypeId::InputClick:
         Release(std::dynamic_pointer_cast<WindowInputClickEvent>(event));
         break;
@@ -138,8 +163,26 @@ namespace Fsl
         Release(std::dynamic_pointer_cast<WindowContentChangedEvent>(event));
         break;
       default:
-        FSLLOG_ERROR("Unknown event type");
+        FSLLOG3_ERROR("Unknown event type");
         break;
+      }
+    }
+
+
+    void WindowEventPool::Release(const std::shared_ptr<WindowMouseOverEvent>& event)
+    {
+      if (!event)
+      {
+        return;
+      }
+      event->SYS_Destruct();
+      if (m_poolWindowMouseOverEvent.size() < MAX_CAPACITY)
+      {
+        m_poolWindowMouseOverEvent.push_back(event);
+      }
+      else
+      {
+        FSLLOG3_WARNING("Pool capacity reached for WindowMouseOverEvent");
       }
     }
 
@@ -156,7 +199,9 @@ namespace Fsl
         m_poolWindowInputClickEvent.push_back(event);
       }
       else
-        FSLLOG_WARNING("Pool capacity reached for WindowInputClickEvent");
+      {
+        FSLLOG3_WARNING("Pool capacity reached for WindowInputClickEvent");
+      }
     }
 
 
@@ -172,7 +217,9 @@ namespace Fsl
         m_poolWindowSelectEvent.push_back(event);
       }
       else
-        FSLLOG_WARNING("Pool capacity reached for WindowSelectEvent");
+      {
+        FSLLOG3_WARNING("Pool capacity reached for WindowSelectEvent");
+      }
     }
 
 
@@ -189,7 +236,9 @@ namespace Fsl
         m_poolWindowContentChangedEvent.push_back(event);
       }
       else
-        FSLLOG_WARNING("Pool capacity reached for WindowContentChangedEvent");
+      {
+        FSLLOG3_WARNING("Pool capacity reached for WindowContentChangedEvent");
+      }
     }
   }
 }

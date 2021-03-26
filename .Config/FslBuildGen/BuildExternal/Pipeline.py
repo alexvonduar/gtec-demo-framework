@@ -31,17 +31,18 @@
 #
 #****************************************************************************************************************************************************
 
+#from typing import Dict
 from typing import List
 from typing import Optional
 from FslBuildGen.Log import Log
 from FslBuildGen import IOUtil
 from FslBuildGen.BuildExternal.DataTypes import RecipeType
+from FslBuildGen.BuildExternal.PipelineCommand import PipelineCommand
 from FslBuildGen.BuildExternal.PipelineCommandBuilder import PipelineCommandBuilder
-from FslBuildGen.BuildExternal.PipelineCommandBuilder import PipelineCommand
 from FslBuildGen.BuildExternal.PackageExperimentalRecipe import PackageExperimentalRecipe
-from FslBuildGen.DataTypes import BuildRecipePipelineCommand
+#from FslBuildGen.DataTypes import BuildRecipePipelineCommand
 from FslBuildGen.Packages.Package import Package
-from FslBuildGen.PackageConfig import PlatformNameString
+#from FslBuildGen.PackageConfig import PlatformNameString
 
 class Pipeline(object):
     def __init__(self, log: Log, builder: PipelineCommandBuilder, sourcePackage: Package, sourceRecipe: PackageExperimentalRecipe) -> None:
@@ -53,7 +54,6 @@ class Pipeline(object):
         self.InstallPath = sourceRecipe.ResolvedInstallLocation
         self.BuildPath = builder.GetBuildPath(sourceRecipe)
         self.CommandList = self.__CreateCommandList(builder, self.SourcePackage, self.SourceRecipe)
-
 
     def __CreateCommandList(self, builder: PipelineCommandBuilder, sourcePackage: Package, sourceRecipe: PackageExperimentalRecipe) -> List[PipelineCommand]:
         if sourceRecipe.Pipeline is None:

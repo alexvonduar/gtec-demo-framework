@@ -32,37 +32,35 @@
  ****************************************************************************************************************************************************/
 
 #include <FslBase/BasicTypes.hpp>
-#include <FslBase/Noncopyable.hpp>
 #include <cstdlib>
 
 namespace Fsl
 {
-  class ValueCompression : private Noncopyable
+  namespace ValueCompression
   {
-  public:
     //! @brief Read a int32 from pSrc at starting at index
-    static int32_t ReadSimpleInt32(const uint8_t* const pSrc, const std::size_t srcLength, const std::size_t index);
+    extern int32_t ReadSimpleInt32(const uint8_t* const pSrc, const std::size_t srcLength, const std::size_t index);
 
     //! @brief Read a uint32 from pSrc at starting at index
-    static uint32_t ReadSimpleUInt32(const uint8_t* const pSrc, const std::size_t srcLength, const std::size_t index);
+    extern uint32_t ReadSimpleUInt32(const uint8_t* const pSrc, const std::size_t srcLength, const std::size_t index);
 
     //! @brief Read a int32 from pSrc at starting at index
     //! @return the number of bytes that was read
-    static std::size_t ReadSimple(int32_t& rResult, const uint8_t* const pSrc, const std::size_t srcLength, const std::size_t index);
+    extern std::size_t ReadSimple(int32_t& rResult, const uint8_t* const pSrc, const std::size_t srcLength, const std::size_t index);
 
     //! @brief Read a uint32 from pSrc at starting at index
     //! @return the number of bytes that was read
-    static std::size_t ReadSimple(uint32_t& rResult, const uint8_t* const pSrc, const std::size_t srcLength, const std::size_t index);
+    extern std::size_t ReadSimple(uint32_t& rResult, const uint8_t* const pSrc, const std::size_t srcLength, const std::size_t index);
 
     //! @brief Encodes a integer into a variable length encoding where the length can be determined from the first byte.
     //         The encoding favors small values.
     /// @return the number of bytes written
-    static std::size_t WriteSimple(uint8_t* const pDst, const std::size_t dstLength, const std::size_t index, const int32_t value);
+    extern std::size_t WriteSimple(uint8_t* const pDst, const std::size_t dstLength, const std::size_t index, const int32_t value);
 
     //! @brief Encodes a integer into a variable length encoding where the length can be determined from the first byte.
     //         The encoding favors small values.
     /// @return the number of bytes written
-    static std::size_t WriteSimple(uint8_t* const pDst, const std::size_t dstLength, const std::size_t index, const uint32_t value);
+    extern std::size_t WriteSimple(uint8_t* const pDst, const std::size_t dstLength, const std::size_t index, const uint32_t value);
   };
 }
 

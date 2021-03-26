@@ -32,7 +32,7 @@
 // OpenVX 1.1 project
 #include "SoftISP.hpp"
 #include "OptionParser.hpp"
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/Exceptions.hpp>
 #include <RapidOpenVX/Check.hpp>
 
@@ -59,7 +59,7 @@ namespace Fsl
   {
     auto optionParser = config.GetOptions<OptionParser>();
     m_denoiseStatus = optionParser->GetDenoiseStatus();
-    FSLLOG("Denoise status: " << m_denoiseStatus);
+    FSLLOG3_INFO("Denoise status: {}", m_denoiseStatus);
   }
 
 
@@ -131,12 +131,12 @@ namespace Fsl
 
     vx_perf_t perf;
     vxQueryGraph(m_graph.Get(), VX_GRAPH_PERFORMANCE, &perf, sizeof(perf));
-    FSLLOG("Graph execution time on GPU(default pipeline): " << perf.avg / 1000000.0 << "ms");
+    FSLLOG3_INFO("Graph execution time on GPU(default pipeline): {}ms", perf.avg / 1000000.0);
 
     if (m_save)
     {
       Bitmap bitmap;
-      FSLLOG("Saving images...");
+      FSLLOG3_INFO("Saving images...");
       ConvertToRGBA(nodes, m_context, m_imagesObj[0], m_imagesObj[4]);
       const char* fileName = "0-SourceImage.bmp";
       CopyToBMP(bitmap, fileName, m_imagesObj[4]);
@@ -198,8 +198,8 @@ namespace Fsl
     rect.end_y = imgHei;
 
     RAPIDOPENVX_CHECK(vxMapImagePatch(image.Get(), &rect, 0, &map_id, &imgInfo, &imgBaseAddr, VX_READ_ONLY, VX_MEMORY_TYPE_HOST, 0));
-    bitmap.Reset(imgBaseAddr, imgHei * imgWid * 4, Extent2D(static_cast<int32_t>(imgWid), static_cast<int32_t>(imgHei)), PixelFormat::B8G8R8A8_UNORM,
-                 BitmapOrigin::UpperLeft);
+    bitmap.Reset(imgBaseAddr, imgHei * imgWid * 4, PxExtent2D(static_cast<int32_t>(imgWid), static_cast<int32_t>(imgHei)),
+                 PixelFormat::B8G8R8A8_UNORM, BitmapOrigin::UpperLeft);
     GetPersistentDataManager()->Write(fileName, bitmap);
     RAPIDOPENVX_CHECK(vxUnmapImagePatch(image.Get(), map_id));
     imgBaseAddr = nullptr;

@@ -1,7 +1,7 @@
 set FSL_GRAPHICS_SDK=%WORKSPACE%
 PATH=%path%;%FSL_GRAPHICS_SDK%\.Config;
-echo FSL_MSVC_ENV_SETUP=%FSL_MSVC_ENV_SETUP%
-call %FSL_MSVC_ENV_SETUP%/vcvarsall.bat amd64
+echo FSL_MSVC_ENV_SETUP=%FSL_MSVC2019_ENV_SETUP%
+call "%FSL_MSVC2019_ENV_SETUP%/vcvarsall.bat" amd64
 if %errorlevel% neq 0 (
   exit /b %errorlevel%
 )
@@ -37,6 +37,11 @@ echo - FSL_GRAPHICS_SDK_THIRD_PARTY_LIBS_READONLY_CACHE_DIR as %FSL_GRAPHICS_SDK
 
 echo CWD: %cd%
 
+call .Config\ConfigureOpenGLESEmu.bat
+if %errorlevel% neq 0 (
+  exit /b %errorlevel%
+)
+
 call prepare.bat
 if %errorlevel% neq 0 (
   exit /b %errorlevel%
@@ -49,6 +54,12 @@ FslBuildExternal.py --ForceClaimInstallArea --VoidBuild
 if %errorlevel% neq 0 (
   exit /b %errorlevel%
 )
-set FSL_TEST_REPORTS=%WORKSPACE%/.Reports/UnitTests
 
-set FSL_FEATURES=[EGL,EarlyAccess,G2D,OpenCL,OpenCL1.1,OpenCL1.2,OpenCV,OpenCV4,OpenGLES2,OpenGLES3,OpenGLES3.1,OpenVG,OpenVX,OpenVX1.1,Vulkan,GoogleUnitTest]
+if not defined FSL_CI_TEST_REPORTS (
+  set FSL_CI_TEST_REPORTS=%WORKSPACE%/.Reports/UnitTests
+)
+
+if not defined FSL_CI_FEATURES (
+set FSL_CI_FEATURES=[EarlyAccess,EGL,G2D,OpenCL1.2,GoogleUnitTest,OpenCV,OpenCV4,OpenGLES2,OpenGLES3,OpenGLES3.1,OpenVG,OpenVX,OpenVX1.1,Vulkan]
+)
+

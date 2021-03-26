@@ -30,10 +30,12 @@
  ****************************************************************************************************************************************************/
 
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
+#include <FslBase/UncheckedNumericCast.hpp>
 #include "SimpleBench.hpp"
 #include <VG/openvg.h>
 #include "PointBench.hpp"
+#include <array>
 #include <iostream>
 
 namespace Fsl
@@ -103,11 +105,11 @@ namespace Fsl
 
   void SimpleBench::Draw(const DemoTime& demoTime)
   {
-    VGfloat color[] = {0.0f, 0.0f, 0.0f, 0.0f};
-    vgSetfv(VG_CLEAR_COLOR, 4, color);
+    constexpr std::array<VGfloat, 4> color = {0.0f, 0.0f, 0.0f, 0.0f};
+    vgSetfv(VG_CLEAR_COLOR, UncheckedNumericCast<VGint>(color.size()), color.data());
 
-    const Point2 currentSize = GetScreenResolution();
-    vgClear(0, 0, currentSize.X, currentSize.Y);
+    const PxSize2D currentSizePx = GetWindowSizePx();
+    vgClear(0, 0, currentSizePx.Width(), currentSizePx.Height());
 
     if (!m_current)
     {
@@ -115,14 +117,14 @@ namespace Fsl
     }
 
     const uint64_t beginTime = m_timer.GetTime();
-    m_current->Draw(currentSize);
+    m_current->Draw(currentSizePx);
     const uint64_t endTime = m_timer.GetTime();
     m_taskTime += endTime - beginTime;
 
     ++m_benchDrawCount;
     if (m_benchDrawCount >= NUM_DRAWS_PER_BENCH)
     {
-      FSLLOG("Benchmark " << m_current->GetName() << " time: " << m_taskTime << " microseconds");
+      FSLLOG3_INFO("Benchmark {} time: {} microseconds", m_current->GetName(), m_taskTime);
       NextBenchmark();
     }
   }

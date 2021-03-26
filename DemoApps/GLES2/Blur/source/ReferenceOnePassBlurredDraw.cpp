@@ -30,7 +30,7 @@
  ****************************************************************************************************************************************************/
 
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslDemoApp/Base/Service/Content/IContentManager.hpp>
 #include <FslDemoService/Graphics/IGraphicsService.hpp>
 #include <FslGraphics/Bitmap/Bitmap.hpp>
@@ -63,8 +63,8 @@ namespace Fsl
   ReferenceOnePassBlurredDraw::ReferenceOnePassBlurredDraw(const DemoAppConfig& config, const Config& blurConfig)
     : ABlurredDraw("Reference one pass")
     , m_batch2D(std::dynamic_pointer_cast<NativeBatch2D>(config.DemoServiceProvider.Get<IGraphicsService>()->GetNativeBatch2D()))
-    , m_screenResolution(config.ScreenResolution)
-    , m_framebufferOrg(config.ScreenResolution, GLTextureParameters(GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE),
+    , m_screenResolution(config.WindowMetrics.GetSizePx())
+    , m_framebufferOrg(config.WindowMetrics.GetSizePx(), GLTextureParameters(GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE),
                        g_framebufferImageParams, GL_DEPTH_COMPONENT16)
   {
     if (!m_batch2D)
@@ -73,8 +73,9 @@ namespace Fsl
     }
 
     const int moddedKernelLength = UpdateKernelLength(blurConfig.KernelLength);
-    FSLLOG_WARNING_IF(moddedKernelLength != blurConfig.KernelLength, "The one pass shader is not compatible with the supplied kernel length of "
-                                                                       << blurConfig.KernelLength << " using " << moddedKernelLength);
+    FSLLOG3_WARNING_IF(moddedKernelLength != blurConfig.KernelLength,
+                       "The one pass shader is not compatible with the supplied kernel length of {} using {}", blurConfig.KernelLength,
+                       moddedKernelLength);
 
     const std::shared_ptr<IContentManager> contentManager = config.DemoServiceProvider.Get<IContentManager>();
 
@@ -82,7 +83,7 @@ namespace Fsl
     if (blurConfig.UseOptimalSigma)
     {
       sigma = GausianHelper::FindOptimalSigma(moddedKernelLength);
-      FSLLOG("Using sigma of " << sigma);
+      FSLLOG3_INFO("Using sigma of {}", sigma);
     }
     std::vector<double> kernel;
     GausianHelper::CalculateGausianKernel(kernel, moddedKernelLength, sigma);
@@ -118,7 +119,7 @@ namespace Fsl
     // Composite the final image
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     {
-      glViewport(0, 0, m_screenResolution.X, m_screenResolution.Y);
+      glViewport(0, 0, m_screenResolution.Width(), m_screenResolution.Height());
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
       glActiveTexture(GL_TEXTURE0);

@@ -31,7 +31,6 @@
  *
  ****************************************************************************************************************************************************/
 
-#include <FslBase/Noncopyable.hpp>
 #include <FslService/Consumer/IServiceProvider.hpp>
 #include <map>
 #include "../Launcher/TypeServiceMaps.hpp"
@@ -43,7 +42,7 @@ namespace Fsl
     TypeServiceMaps m_serviceProviderMaps;
 
   public:
-    ServiceProviderImpl(TypeServiceMaps serviceProviderMaps);
+    explicit ServiceProviderImpl(TypeServiceMaps serviceProviderMaps);
     ~ServiceProviderImpl() override;
 
     void Update();

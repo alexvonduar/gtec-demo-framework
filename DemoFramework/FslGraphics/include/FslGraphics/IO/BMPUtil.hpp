@@ -31,19 +31,21 @@
  *
  ****************************************************************************************************************************************************/
 
-#include <FslBase/Noncopyable.hpp>
 #include <FslBase/IO/Path.hpp>
 #include <FslGraphics/Bitmap/Bitmap.hpp>
-#include <FslGraphics/Bitmap/RawBitmap.hpp>
 #include <FslGraphics/Bitmap/BitmapOrigin.hpp>
+#include <FslGraphics/Bitmap/RawBitmap.hpp>
 #include <fstream>
 
 namespace Fsl
 {
   //! The BMP loading capabilities are very limited!
-  class BMPUtil : private Noncopyable
+  class BMPUtil
   {
   public:
+    BMPUtil(const BMPUtil&) = delete;
+    BMPUtil& operator=(const BMPUtil&) = delete;
+
     //! @brief Load bitmap from file
     //! @param rBitmap the bitmap that will be resized to fit the loaded bmp image.
     //! @param strFilename the file to load.

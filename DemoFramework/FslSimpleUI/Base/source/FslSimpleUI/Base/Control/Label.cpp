@@ -32,8 +32,11 @@
 #include <FslSimpleUI/Base/Control/Label.hpp>
 #include <FslSimpleUI/Base/PropertyTypeFlags.hpp>
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
+#include <FslBase/String/StringViewLiteUtil.hpp>
 #include <cassert>
+#include <cstring>
+#include <utility>
 
 namespace Fsl
 {
@@ -45,15 +48,34 @@ namespace Fsl
     }
 
 
+    void Label::SetContent(const StringViewLite& value)
+    {
+      if (value != m_content)
+      {
+        m_content = StringViewLiteUtil::ToString(value);
+        PropertyUpdated(PropertyType::Content);
+      }
+    }
+
+
     void Label::SetContent(const std::string& value)
     {
-      if (value == m_content)
+      if (value != m_content)
       {
-        return;
+        m_content = value;
+        PropertyUpdated(PropertyType::Content);
       }
-
-      m_content = value;
-      PropertyUpdated(PropertyType::Content);
     }
+
+
+    void Label::SetContent(std::string&& value)
+    {
+      if (value != m_content)
+      {
+        m_content = std::move(value);
+        PropertyUpdated(PropertyType::Content);
+      }
+    }
+
   }
 }

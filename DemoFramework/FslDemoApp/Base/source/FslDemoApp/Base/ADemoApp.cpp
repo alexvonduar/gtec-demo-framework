@@ -30,13 +30,15 @@
  ****************************************************************************************************************************************************/
 
 #include <FslDemoApp/Base/ADemoApp.hpp>
-#include <FslBase/Log/BasicLog.hpp>
-#include <FslBase/Log/Log.hpp>
-#include <FslBase/Log/Math/LogPoint2.hpp>
+#include <FslBase/Log/Log3Core.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
+#include <FslBase/Log/Math/FmtPoint2.hpp>
+#include <FslBase/Math/Pixel/TypeConverter.hpp>
 #include <FslDemoApp/Base/DemoAppExtension.hpp>
 #include <FslDemoApp/Base/Service/Events/Basic/KeyEvent.hpp>
 #include <FslDemoApp/Base/Service/Events/IEvent.hpp>
 #include <FslDemoApp/Base/Service/Exceptions.hpp>
+#include <FslDemoApp/Shared/Log/Host/FmtDemoWindowMetrics.hpp>
 #include <algorithm>
 #include <cassert>
 #include <utility>
@@ -55,7 +57,7 @@ namespace Fsl
     {
       std::shared_ptr<DemoAppExtension> m_ext;
 
-      ExtensionCompare(std::shared_ptr<DemoAppExtension> ext)
+      explicit ExtensionCompare(std::shared_ptr<DemoAppExtension> ext)
         : m_ext(std::move(ext))
       {
       }
@@ -71,7 +73,7 @@ namespace Fsl
     struct PredMethodOnKeyEvent
     {
       const KeyEvent& m_rParam0;
-      PredMethodOnKeyEvent(const KeyEvent& rParam0)
+      explicit PredMethodOnKeyEvent(const KeyEvent& rParam0)
         : m_rParam0(rParam0)
       {
       }
@@ -87,7 +89,7 @@ namespace Fsl
     struct PredMethodOnMouseButtonEvent
     {
       const MouseButtonEvent& m_rParam0;
-      PredMethodOnMouseButtonEvent(const MouseButtonEvent& rParam0)
+      explicit PredMethodOnMouseButtonEvent(const MouseButtonEvent& rParam0)
         : m_rParam0(rParam0)
       {
       }
@@ -102,7 +104,7 @@ namespace Fsl
     struct PredMethodOnMouseMoveEvent
     {
       const MouseMoveEvent& m_rParam0;
-      PredMethodOnMouseMoveEvent(const MouseMoveEvent& rParam0)
+      explicit PredMethodOnMouseMoveEvent(const MouseMoveEvent& rParam0)
         : m_rParam0(rParam0)
       {
       }
@@ -117,7 +119,7 @@ namespace Fsl
     struct PredMethodOnMouseWheelEvent
     {
       const MouseWheelEvent& m_rParam0;
-      PredMethodOnMouseWheelEvent(const MouseWheelEvent& rParam0)
+      explicit PredMethodOnMouseWheelEvent(const MouseWheelEvent& rParam0)
         : m_rParam0(rParam0)
       {
       }
@@ -132,7 +134,7 @@ namespace Fsl
     struct PredMethodOnRawMouseMoveEvent
     {
       const RawMouseMoveEvent& m_rParam0;
-      PredMethodOnRawMouseMoveEvent(const RawMouseMoveEvent& rParam0)
+      explicit PredMethodOnRawMouseMoveEvent(const RawMouseMoveEvent& rParam0)
         : m_rParam0(rParam0)
       {
       }
@@ -147,7 +149,7 @@ namespace Fsl
     struct PredMethodOnTimeStateEvent
     {
       const TimeStateEvent& m_rParam0;
-      PredMethodOnTimeStateEvent(const TimeStateEvent& rParam0)
+      explicit PredMethodOnTimeStateEvent(const TimeStateEvent& rParam0)
         : m_rParam0(rParam0)
       {
       }
@@ -160,10 +162,10 @@ namespace Fsl
     };
 
 
-    struct PredMethodResized
+    struct PredMethodConfigurationChanged
     {
-      Point2 m_param0;
-      PredMethodResized(const Point2& param0)
+      DemoWindowMetrics m_param0;
+      explicit PredMethodConfigurationChanged(const DemoWindowMetrics& param0)
         : m_param0(param0)
       {
       }
@@ -171,14 +173,15 @@ namespace Fsl
       inline void operator()(const std::shared_ptr<DemoAppExtension>& value) const
       {
         assert(value);
-        value->Resized(m_param0);
+        value->ConfigurationChanged(m_param0);
       }
     };
+
 
     struct PredMethodPreUpdate
     {
       DemoTime m_param0;
-      PredMethodPreUpdate(const DemoTime& param0)
+      explicit PredMethodPreUpdate(const DemoTime& param0)
         : m_param0(param0)
       {
       }
@@ -193,7 +196,7 @@ namespace Fsl
     struct PredMethodFixedUpdate
     {
       DemoTime m_param0;
-      PredMethodFixedUpdate(const DemoTime& param0)
+      explicit PredMethodFixedUpdate(const DemoTime& param0)
         : m_param0(param0)
       {
       }
@@ -208,7 +211,7 @@ namespace Fsl
     struct PredMethodUpdate
     {
       DemoTime m_param0;
-      PredMethodUpdate(const DemoTime& param0)
+      explicit PredMethodUpdate(const DemoTime& param0)
         : m_param0(param0)
       {
       }
@@ -223,7 +226,7 @@ namespace Fsl
     struct PredMethodPostUpdate
     {
       DemoTime m_param0;
-      PredMethodPostUpdate(const DemoTime& param0)
+      explicit PredMethodPostUpdate(const DemoTime& param0)
         : m_param0(param0)
       {
       }
@@ -270,7 +273,7 @@ namespace Fsl
     : m_demoAppConfig(demoAppConfig)
 
   {
-    FSLBASICLOG2(LogType::Verbose, "ADemopApp::ADemopApp()");
+    FSLLOG3_VERBOSE("ADemopApp::ADemopApp()");
 
     m_contentManger = demoAppConfig.DemoServiceProvider.Get<IContentManager>();
     m_persistentDataManager = demoAppConfig.DemoServiceProvider.Get<IPersistentDataManager>();
@@ -280,7 +283,7 @@ namespace Fsl
 
   ADemoApp::~ADemoApp()
   {
-    FSLBASICLOG2(LogType::Verbose, "ADemopApp::~ADemopApp()");
+    FSLLOG3_VERBOSE("ADemopApp::~ADemopApp()");
   }
 
 
@@ -311,7 +314,7 @@ namespace Fsl
 
   void ADemoApp::_PostConstruct()
   {
-    FSLBASICLOG2(LogType::Verbose, "ADemoApp::_PostConstruct()");
+    FSLLOG3_VERBOSE("ADemoApp::_PostConstruct()");
 
     // When this method is called, the object should be successfully constructed (unless someone calls it from a constructor, but thats a usage error
     // and its undetectable). So don't do that!
@@ -321,7 +324,7 @@ namespace Fsl
 
   void ADemoApp::_PreDestruct()
   {
-    FSLBASICLOG2(LogType::Verbose, "ADemoApp::_PreDestruct()");
+    FSLLOG3_VERBOSE("ADemoApp::_PreDestruct()");
 
     // Give the app a chance to cleanup
     try
@@ -407,24 +410,23 @@ namespace Fsl
         break;
       }
       default:
-        FSLLOG_DEBUG_WARNING("Unhandled event: " << static_cast<int32_t>(pEvent->GetEventType()));
+        FSLLOG3_DEBUG_WARNING("Unhandled event: {}", static_cast<int32_t>(pEvent->GetEventType()));
         break;
       }
     }
   }
 
 
-  void ADemoApp::_Resized(const Point2& size)
+  void ADemoApp::_ConfigurationChanged(const DemoWindowMetrics& windowMetrics)
   {
-    FSLLOG2(LogType::Verbose, "ADemoApp::_Resized(" << size << ")");
+    FSLLOG3_VERBOSE("ADemoApp::_ConfigurationChanged({})", windowMetrics);
 
-    m_demoAppConfig.ScreenResolution = size;
+    m_demoAppConfig.UpdateWindowMetrics(windowMetrics);
 
     // Call all registered extensions
-    CallExtensions(m_extensions, PredMethodResized(size));
+    CallExtensions(m_extensions, PredMethodConfigurationChanged(windowMetrics));
 
-    // Done this way to prevent common mistakes where people forget to call the base class
-    Resized(size);
+    ConfigurationChanged(windowMetrics);
   }
 
 
@@ -492,9 +494,20 @@ namespace Fsl
   }
 
 
+  PxSize2D ADemoApp::GetWindowSizePx() const
+  {
+    return TypeConverter::UncheckedTo<PxSize2D>(m_demoAppConfig.WindowMetrics.ExtentPx);
+  }
+
+  float ADemoApp::GetWindowAspectRatio() const
+  {
+    return m_demoAppConfig.WindowMetrics.AspectRatio();
+  }
+
+
   std::shared_ptr<IDemoAppControl> ADemoApp::GetDemoAppControl() const
   {
-    const std::shared_ptr<IDemoAppControl> demoAppControl = m_demoAppControl.lock();
+    std::shared_ptr<IDemoAppControl> demoAppControl = m_demoAppControl.lock();
     if (!demoAppControl)
     {
       throw ServiceUnavailableException("The service is no longer available");
@@ -505,7 +518,7 @@ namespace Fsl
 
   std::shared_ptr<IContentManager> ADemoApp::GetContentManager() const
   {
-    const std::shared_ptr<IContentManager> contentManager = m_contentManger.lock();
+    std::shared_ptr<IContentManager> contentManager = m_contentManger.lock();
     if (!contentManager)
     {
       throw ServiceUnavailableException("The service is no longer available");
@@ -516,7 +529,7 @@ namespace Fsl
 
   std::shared_ptr<IPersistentDataManager> ADemoApp::GetPersistentDataManager() const
   {
-    const std::shared_ptr<IPersistentDataManager> manager = m_persistentDataManager.lock();
+    std::shared_ptr<IPersistentDataManager> manager = m_persistentDataManager.lock();
     if (!manager)
     {
       throw ServiceUnavailableException("The service is no longer available");

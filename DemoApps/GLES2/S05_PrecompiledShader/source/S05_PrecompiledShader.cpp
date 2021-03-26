@@ -29,7 +29,7 @@
  *
  ****************************************************************************************************************************************************/
 
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslUtil/OpenGLES2/Exceptions.hpp>
 #include <FslUtil/OpenGLES2/GLCheck.hpp>
 #include "S05_PrecompiledShader.hpp"
@@ -53,7 +53,7 @@ namespace Fsl
       source[0] = 0;
       GL_ON_ERROR_LOG_AND_RETURN(glGetShaderSource(hShader, source.size(), nullptr, &source[0]));
 
-      FSLLOG("*** Source start ***\n" << &source[0] << "\n*** Source end ***\n\n");
+      FSLLOG3_INFO("*** Source start ***\n{}\n*** Source end ***\n\n", &source[0]);
 
       // Fetch the log
       GL_ON_ERROR_LOG_AND_RETURN(glGetShaderiv(hShader, GL_INFO_LOG_LENGTH, &length));
@@ -61,14 +61,16 @@ namespace Fsl
       errorLog[0] = 0;
       GL_ON_ERROR_LOG_AND_RETURN(glGetShaderInfoLog(hShader, errorLog.size(), nullptr, &errorLog[0]));
 
-      FSLLOG("*** Error log start ***\n" << &errorLog[0] << "\n*** Error Log End ***\n\n");
+      FSLLOG3_INFO("*** Error log start ***\n{}\n*** Error Log End ***\n\n", &errorLog[0]);
     }
+
     typedef enum
     {
       GC400T = 0,
       GC880,
       GC2000
     } gpuType_t;
+
     gpuType_t g_gpuType;
   }
 
@@ -81,16 +83,15 @@ namespace Fsl
     , m_hFragmentShader(0)
     , m_hProgram(0)
   {
-    const Point2 currentSize = GetScreenResolution();
-    m_width = currentSize.X;
-    m_height = currentSize.Y;
+    const PxSize2D currentSizePx = GetWindowSizePx();
+    m_width = currentSizePx.Width();
+    m_height = currentSizePx.Height();
     const std::shared_ptr<OptionParser> options = config.GetOptions<OptionParser>();
 
     m_hProgram = PrepareProgram(options->GetSeparateShader());
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
   }
-
 
   S05_PrecompiledShader::~S05_PrecompiledShader()
   {
@@ -194,18 +195,18 @@ namespace Fsl
       if (rendererString.compare("Vivante GC880"))
       {
         g_gpuType = GC400T;
-        FSLLOG("GPU = GC400T");
+        FSLLOG3_INFO("GPU = GC400T");
       }
       else
       {
         g_gpuType = GC880;
-        FSLLOG("GPU = GC880");
+        FSLLOG3_INFO("GPU = GC880");
       }
     }
     else
     {
       g_gpuType = GC2000;
-      FSLLOG("GPU = GC2000");
+      FSLLOG3_INFO("GPU = GC2000");
     }
     if (useSeparateShaders)
     {
@@ -219,18 +220,18 @@ namespace Fsl
       GLuint hFragmentShader = 0;
       try
       {
-        std::string vertexShaderName("flatES2gc400t.vgcSL");
-        std::string fragmentShaderName("flatES2gc400t.pgcSL");
+        IO::Path vertexShaderName("flatES2gc400t.vgcSL");
+        IO::Path fragmentShaderName("flatES2gc400t.pgcSL");
 
         if (GC2000 == g_gpuType)
         {
-          vertexShaderName.assign("flatES2gc2000.vgcSL");
-          fragmentShaderName.assign("flatES2gc2000.pgcSL");
+          vertexShaderName = "flatES2gc2000.vgcSL";
+          fragmentShaderName = "flatES2gc2000.pgcSL";
         }
         else if (GC880 == g_gpuType)
         {
-          vertexShaderName.assign("flatES2gc880.vgcSL");
-          fragmentShaderName.assign("flatES2gc880.pgcSL");
+          vertexShaderName = "flatES2gc880.vgcSL";
+          fragmentShaderName = "flatES2gc880.pgcSL";
         }
         // load vertex/frag shader
         std::vector<uint8_t> buf;
@@ -283,14 +284,14 @@ namespace Fsl
     }
     else
     {
-      std::string shaderProgramName("es20gc400t.gcPGM");
+      IO::Path shaderProgramName("es20gc400t.gcPGM");
       if (GC2000 == g_gpuType)
       {
-        shaderProgramName.assign("es20gc2000.gcPGM");
+        shaderProgramName = "es20gc2000.gcPGM";
       }
       else if (GC880 == g_gpuType)
       {
-        shaderProgramName.assign("es20gc880.gcPGM");
+        shaderProgramName = "es20gc880.gcPGM";
       }
       std::vector<uint8_t> buf;
       GetContentManager()->ReadAllBytes(buf, shaderProgramName);

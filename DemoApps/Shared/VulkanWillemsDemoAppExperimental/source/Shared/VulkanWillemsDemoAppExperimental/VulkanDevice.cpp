@@ -16,7 +16,7 @@
 
 #include <Shared/VulkanWillemsDemoAppExperimental/Config.hpp>
 #include <Shared/VulkanWillemsDemoAppExperimental/VulkanDevice.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslUtil/Vulkan1_0/Exceptions.hpp>
 #include <FslUtil/Vulkan1_0/Util/MemoryTypeUtil.hpp>
 #include <FslUtil/Vulkan1_0/Util/PhysicalDeviceUtil.hpp>
@@ -46,7 +46,7 @@ namespace Fsl
       , m_properties{}
       , m_features{}
       , m_memoryProperties{}
-      , m_enableDebugMarkers(false)
+    //, m_enableDebugMarkers(false)
     {
       if (m_physicalDevice == VK_NULL_HANDLE || m_device == VK_NULL_HANDLE)
       {
@@ -139,7 +139,7 @@ namespace Fsl
         // If a pointer to the buffer data has been passed, map the buffer and copy over the data
         if (pData != nullptr)
         {
-          void* pMapped;
+          void* pMapped = nullptr;
           rMemory.MapMemory(0, size, 0, &pMapped);
           {
             std::memcpy(pMapped, pData, size);
@@ -187,7 +187,7 @@ namespace Fsl
       // If a pointer to the buffer data has been passed, map the buffer and copy over the data
       if (pData != nullptr)
       {
-        void* pDst;
+        void* pDst = nullptr;
         newMemory.MapMemory(0, VK_WHOLE_SIZE, 0, &pDst);
         {
           std::memcpy(pDst, pData, size);
@@ -205,7 +205,7 @@ namespace Fsl
                           memoryPropertyFlags);
       // Attach the memory to the buffer object
       buffer.Bind();
-      return std::move(buffer);
+      return buffer;
     }
 
 
@@ -267,7 +267,7 @@ namespace Fsl
     {
       if (!rCommandBuffer.IsValid())
       {
-        FSLLOG_DEBUG_WARNING("Can not flush a invalid command buffer");
+        FSLLOG3_DEBUG_WARNING("Can not flush a invalid command buffer");
         return;
       }
       rCommandBuffer.End();

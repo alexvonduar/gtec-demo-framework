@@ -31,7 +31,7 @@
 
 #include "TwoPassShaders.hpp"
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslDemoApp/Base/Service/Content/IContentManager.hpp>
 #include "GausianHelper.hpp"
 #include <cassert>
@@ -41,14 +41,14 @@ namespace Fsl
   namespace
   {
     void GenerateHardcoded(GLES2::GLProgram& rProgramBlurX, GLES2::GLProgram& rProgramBlurY, const std::shared_ptr<IContentManager>& contentManager,
-                           const std::vector<double>& kernelSlice, const Point2& sizeTextureBlurX, const Point2& sizeTextureBlurY,
+                           const std::vector<double>& kernelSlice, const PxSize2D& sizeTextureBlurX, const PxSize2D& sizeTextureBlurY,
                            const TwoPassShaders::Enum mode, const std::string& basicShader)
     {
       const std::string fragTemplate = contentManager->ReadAllText("GaussianTemplate.frag");
 
       std::string gaussianFragX(fragTemplate);
       std::string gaussianFragY(fragTemplate);
-      Point2 texSizes(sizeTextureBlurX.X, sizeTextureBlurY.Y);
+      PxSize2D texSizes(sizeTextureBlurX.Width(), sizeTextureBlurY.Height());
       switch (mode)
       {
       case TwoPassShaders::Linear:
@@ -60,7 +60,7 @@ namespace Fsl
         break;
       }
 
-      // FSLLOG(gaussianFragX);
+      // FSLLOG3_INFO(gaussianFragX);
 
       rProgramBlurX.Reset(basicShader, gaussianFragX);
       rProgramBlurY.Reset(basicShader, gaussianFragY);
@@ -69,7 +69,7 @@ namespace Fsl
 
     void GenerateNonDependent(GLES2::GLProgram& rProgramBlurX, GLES2::GLProgram& rProgramBlurY,
                               const std::shared_ptr<IContentManager>& contentManager, const std::vector<double>& kernelSlice,
-                              const Point2& sizeTextureBlurX, const Point2& sizeTextureBlurY, const TwoPassShaders::Enum mode)
+                              const PxSize2D& sizeTextureBlurX, const PxSize2D& sizeTextureBlurY, const TwoPassShaders::Enum mode)
     {
       const std::string vertTemplate = contentManager->ReadAllText("GaussianTemplateNoDependent.vert");
       const std::string fragTemplate = contentManager->ReadAllText("GaussianTemplateNoDependent.frag");
@@ -77,7 +77,7 @@ namespace Fsl
       std::string gaussianVertX(vertTemplate);
       std::string gaussianVertY(vertTemplate);
       std::string gaussianFrag(fragTemplate);
-      Point2 texSizes(sizeTextureBlurX.X, sizeTextureBlurY.Y);
+      PxSize2D texSizes(sizeTextureBlurX.Width(), sizeTextureBlurY.Height());
       switch (mode)
       {
       case TwoPassShaders::Linear:
@@ -92,7 +92,7 @@ namespace Fsl
       rProgramBlurX.Reset(gaussianVertX, gaussianFrag);
       rProgramBlurY.Reset(gaussianVertY, gaussianFrag);
 
-      // FSLLOG(gaussianVertX);
+      // FSLLOG3_INFO(gaussianVertX);
     }
   }
 
@@ -101,14 +101,14 @@ namespace Fsl
 
 
   void TwoPassShaders::Reset(const std::shared_ptr<IContentManager>& contentManager, const int32_t kernelLength, const float sigma,
-                             const Point2& sizeTextureBlurX, const Point2& sizeTextureBlurY, const TwoPassShaders::Enum mode,
+                             const PxSize2D& sizeTextureBlurX, const PxSize2D& sizeTextureBlurY, const TwoPassShaders::Enum mode,
                              const ShaderType::Enum shaderType)
   {
     float moddedSigma = sigma;
     if (moddedSigma < 0)
     {
       moddedSigma = GausianHelper::FindOptimalSigma(kernelLength);
-      FSLLOG("Using sigma of " << moddedSigma);
+      FSLLOG3_INFO("Using sigma of {}", moddedSigma);
     }
 
     std::vector<double> kernelSlice;
@@ -118,7 +118,7 @@ namespace Fsl
 
 
   void TwoPassShaders::Reset(const std::shared_ptr<IContentManager>& contentManager, const std::vector<double>& kernelSlice,
-                             const Point2& sizeTextureBlurX, const Point2& sizeTextureBlurY, const TwoPassShaders::Enum mode,
+                             const PxSize2D& sizeTextureBlurX, const PxSize2D& sizeTextureBlurY, const TwoPassShaders::Enum mode,
                              const ShaderType::Enum shaderType)
   {
     // Load the basic shader

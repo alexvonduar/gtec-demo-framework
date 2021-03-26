@@ -30,39 +30,138 @@
  ****************************************************************************************************************************************************/
 
 #include <FslGraphics/TextureAtlas/BasicTextureAtlas.hpp>
+#include <FslBase/Math/Rectangle.hpp>
+#include <FslBase/Log/Math/Pixel/FmtPxExtent2D.hpp>
+#include <FslBase/Log/Math/Pixel/FmtPxThicknessU.hpp>
+#include <FslBase/Log/IO/FmtPath.hpp>
+#include <FslBase/Log/String/FmtStringViewLite.hpp>
+#include <FslBase/UncheckedNumericCast.hpp>
 #include <FslGraphics/Exceptions.hpp>
+#include <fmt/format.h>
+#include <algorithm>
+#include <limits>
+#include <utility>
+
 
 namespace Fsl
 {
-  int32_t BasicTextureAtlas::Count() const
+  // constexpr const uint32_t DEFAULT_DP = 160;
+
+  namespace
   {
-    return static_cast<int32_t>(m_entries.size());
+    void ValidateThicknessU(const NamedAtlasTexture& textureEntry, const PxThicknessU& thickness, const StringViewLite& debugHelp)
+    {
+      if (thickness.Left >= textureEntry.TextureInfo.ExtentPx.Width || thickness.Right >= textureEntry.TextureInfo.ExtentPx.Width ||
+          thickness.SumX() >= textureEntry.TextureInfo.ExtentPx.Width)
+      {
+        throw std::invalid_argument(fmt::format("invalid {} thickness {} for texture '{}' of size {}", debugHelp, thickness, textureEntry.Name,
+                                                textureEntry.TextureInfo.ExtentPx));
+      }
+      if (thickness.Top >= textureEntry.TextureInfo.ExtentPx.Height || thickness.Bottom >= textureEntry.TextureInfo.ExtentPx.Height ||
+          thickness.SumY() >= textureEntry.TextureInfo.ExtentPx.Height)
+      {
+        throw std::invalid_argument(fmt::format("invalid {} thickness {} for texture '{}' of size {}", debugHelp, thickness, textureEntry.Name,
+                                                textureEntry.TextureInfo.ExtentPx));
+      }
+    }
+
+  }
+
+  uint32_t BasicTextureAtlas::Count() const
+  {
+    return UncheckedNumericCast<uint32_t>(m_entries.size());
   }
 
 
-  NamedAtlasTexture BasicTextureAtlas::GetEntry(const int32_t index) const
+  const NamedAtlasTexture& BasicTextureAtlas::GetEntry(const uint32_t index) const
   {
-    if (index < 0 || static_cast<std::size_t>(index) >= m_entries.size())
+    if (index >= m_entries.size())
     {
       throw std::invalid_argument("Out of bounds");
     }
-    return NamedAtlasTexture(m_entries[index].Name, AtlasTextureInfo(m_entries[index].SrcRect, m_entries[index].TrimmedRect));
+    return m_entries[index];
   }
 
 
-  void BasicTextureAtlas::Reset(const int32_t capacity)
+  uint32_t BasicTextureAtlas::NineSliceCount() const
+  {
+    return UncheckedNumericCast<uint32_t>(m_nineSlices.size());
+  }
+
+  const TextureAtlasNineSlicePatch& BasicTextureAtlas::GetNineSlicePatch(const uint32_t index) const
+  {
+    if (index >= m_nineSlices.size())
+    {
+      throw std::invalid_argument("Out of bounds");
+    }
+    const auto& record = m_nineSlices[index];
+    if (record.TextureIndex >= m_entries.size())
+    {
+      throw NotFoundException("linked texture is invalid");
+    }
+    return record;
+  }
+
+
+  void BasicTextureAtlas::Reset(const uint32_t capacity)
   {
     m_entries.resize(capacity);
   }
 
 
-  void BasicTextureAtlas::SetEntry(const int32_t index, const Rectangle& srcRect, const Rectangle& trimmedRect, const UTF8String& name)
+  void BasicTextureAtlas::SetEntry(const uint32_t index, const PxRectangleU& rectanglePx, const PxThicknessU& trimPx, const uint32_t dpi,
+                                   IO::Path path)
   {
-    if (index < 0 || static_cast<std::size_t>(index) >= m_entries.size())
+    if (static_cast<std::size_t>(index) >= m_entries.size())
     {
       throw std::invalid_argument("out of bounds");
     }
+    if (rectanglePx.Width >= static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))
+    {
+      throw NotSupportedException("Rectangle width too large");
+    }
+    if (rectanglePx.Height >= static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))
+    {
+      throw NotSupportedException("Rectangle height too large");
+    }
+    if (rectanglePx.Right() < rectanglePx.Left())
+    {
+      throw NotSupportedException("Invalid rectangle");
+    }
+    if (rectanglePx.Bottom() < rectanglePx.Top())
+    {
+      throw NotSupportedException("Invalid rectangle");
+    }
+    if (dpi == 0u)
+    {
+      throw NotSupportedException("dpi can not be zero");
+    }
+    if (dpi > (160 * 10))
+    {
+      throw NotSupportedException("dpi exceeded limit");
+    }
 
-    m_entries[index] = Record(srcRect, trimmedRect, name);
+    m_entries[index] = NamedAtlasTexture(std::move(path), AtlasTextureInfo(rectanglePx, trimPx, dpi));
   }
+
+  void BasicTextureAtlas::AddNineSlice(const uint32_t textureIndex, const PxThicknessU& nineSlicePx, const PxThicknessU& contentMarginPx)
+  {
+    if (static_cast<std::size_t>(textureIndex) >= m_entries.size())
+    {
+      throw std::invalid_argument("out of bounds");
+    }
+    auto itrFind = std::find_if(m_nineSlices.begin(), m_nineSlices.end(),
+                                [textureIndex](const TextureAtlasNineSlicePatch& entry) { return entry.TextureIndex == textureIndex; });
+    if (itrFind != m_nineSlices.end())
+    {
+      throw UsageErrorException("There can only be one nine slice associated with each texture");
+    }
+
+    auto& rTextureEntry = m_entries[textureIndex];
+    ValidateThicknessU(rTextureEntry, nineSlicePx, "nineslice");
+    ValidateThicknessU(rTextureEntry, contentMarginPx, "contentMargin");
+
+    m_nineSlices.emplace_back(textureIndex, AtlasNineSlicePatchInfo(nineSlicePx, contentMarginPx));
+  }
+
 }

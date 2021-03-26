@@ -30,11 +30,12 @@
  ****************************************************************************************************************************************************/
 
 #include <FslBase/IO/File.hpp>
-#include <FslBase/System/Platform/PlatformFileSystem.hpp>
 #include <FslBase/Exceptions.hpp>
+#include <FslBase/Log/IO/FmtPath.hpp>
+#include <FslBase/System/Platform/PlatformFileSystem.hpp>
+#include <fmt/format.h>
 #include <cassert>
 #include <fstream>
-#include <sstream>
 #include <limits>
 #include <vector>
 
@@ -43,8 +44,10 @@
 // but instead provides its own 'hack' for opening wstring's
 #ifdef _WIN32
 #include <FslBase/System/Platform/PlatformWin32.hpp>
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define PATH_GET_NAME(X) PlatformWin32::Widen(X.ToUTF8String())
 #else
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define PATH_GET_NAME(X) X.ToUTF8String()
 #endif
 
@@ -69,10 +72,7 @@ namespace Fsl
       {
         if (!rStream.good())
         {
-          std::string str("File not found '");
-          str += path.ToAsciiString();
-          str += "'";
-          throw IOException(str);
+          throw IOException(fmt::format("File not found '{0}'", path));
         }
 
         // Dumb C++ way of getting the stream length
@@ -92,10 +92,7 @@ namespace Fsl
         }
         if (!rStream.good())
         {
-          std::string str("Failed to read entire file '");
-          str += path.ToAsciiString();
-          str += "'";
-          throw IOException(str);
+          throw IOException(fmt::format("Failed to read entire file '{}'", path));
         }
       }
 
@@ -109,10 +106,7 @@ namespace Fsl
         }
         if (!rStream.good())
         {
-          std::string str("Failed to write entire file '");
-          str += path.ToAsciiString();
-          str += "'";
-          throw IOException(str);
+          throw IOException(fmt::format("Failed to write entire file '{}'", path));
         }
       }
     }
@@ -201,11 +195,17 @@ namespace Fsl
       std::ifstream file(PATH_GET_NAME(path), std::ios::ate | std::ios::binary);
       if (!file.good())
       {
-        std::stringstream strstream;
-        strstream << "Failed to open file '" << path.ToAsciiString() << "'";
-        throw IOException(strstream.str());
+        throw IOException(fmt::format("Failed to open file '{0}'", path));
       }
       return file.tellg();
+    }
+
+
+    std::vector<uint8_t> File::ReadAllBytes(const Path& path)
+    {
+      std::vector<uint8_t> content;
+      ReadAllBytes(content, path);
+      return content;
     }
 
 
@@ -243,10 +243,7 @@ namespace Fsl
         const std::size_t length = GetStreamLength(file, path);
         if (length > cbDstArrayEx)
         {
-          std::string str("Supplied array too small to hold '");
-          str += path.ToAsciiString();
-          str += "'";
-          throw IOException(str);
+          throw IOException(fmt::format("Supplied array too small to hold '{0}'", path));
         }
 
         StreamRead(file, path, pDstArray, length);

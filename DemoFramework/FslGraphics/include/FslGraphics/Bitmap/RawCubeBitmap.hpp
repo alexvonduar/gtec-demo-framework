@@ -32,6 +32,7 @@
  ****************************************************************************************************************************************************/
 
 #include <FslGraphics/Bitmap/RawBitmap.hpp>
+#include <FslGraphics/Texture/TextureInfo.hpp>
 
 namespace Fsl
 {
@@ -67,7 +68,7 @@ namespace Fsl
     }
 
     //! @brief Get the extent
-    constexpr Extent2D GetExtent() const
+    constexpr PxExtent2D GetExtent() const
     {
       return m_bitmapPosX.GetExtent();
     }
@@ -113,6 +114,11 @@ namespace Fsl
     {
       return m_bitmapPosX.GetByteSize() + m_bitmapNegX.GetByteSize() + m_bitmapPosY.GetByteSize() + m_bitmapNegY.GetByteSize() +
              m_bitmapPosZ.GetByteSize() + m_bitmapNegZ.GetByteSize();
+    }
+
+    constexpr TextureInfo GetTextureInfo() const
+    {
+      return {1u, 6u, 1u};
     }
   };
 }

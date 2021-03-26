@@ -35,13 +35,13 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from FslBuildGen import PathUtil
-from FslBuildGen import IOUtil
+#from FslBuildGen import IOUtil
 from FslBuildGen.BuildConfig.CMakeConfigurationPlatform import CMakeConfigurationPlatform
 from FslBuildGen.CMakeUtil import CMakeVersion
 
 class CMakeConfiguration(object):
     def __init__(self, defaultBuildDir: str, defaultInstallPrefix: Optional[str], minimumVersion: CMakeVersion,
-                 platforms: List[CMakeConfigurationPlatform]) -> None:
+                 platforms: List[CMakeConfigurationPlatform], ninjaRecipePackageName: str) -> None:
         super().__init__()
 
         PathUtil.ValidateIsNormalizedPath(defaultBuildDir, "DefaultBuildDir")
@@ -51,6 +51,7 @@ class CMakeConfiguration(object):
         self.DefaultBuildDir = defaultBuildDir
         self.DefaultInstallPrefix = defaultInstallPrefix
         self.MinimumVersion = minimumVersion
+        self.NinjaRecipePackageName = ninjaRecipePackageName
 
 
         platformDict = {}                                                # type: Dict[str,CMakeConfigurationPlatform]
@@ -61,3 +62,7 @@ class CMakeConfiguration(object):
     def TryGetPlatformConfig(self, platformName: str) -> Optional[CMakeConfigurationPlatform]:
         platformId = platformName.lower()
         return self.__PlatformDict[platformId] if platformId in self.__PlatformDict else None
+
+    def SetAllowFindPackage(self, enabled: bool) -> None:
+        for entry in self.__PlatformDict.values():
+            entry.AllowFindPackage = enabled

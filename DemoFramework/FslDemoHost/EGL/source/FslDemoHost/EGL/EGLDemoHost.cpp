@@ -30,7 +30,9 @@
  ****************************************************************************************************************************************************/
 
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
+#include <FslBase/Log/String/FmtStringViewLite.hpp>
+#include <FslBase/String/StringUtil.hpp>
 #include <FslDemoApp/Shared/Host/DemoHostFeatureUtil.hpp>
 #include <FslDemoHost/Base/Service/Image/IImageServiceControl.hpp>
 #include <FslDemoHost/Base/Service/WindowHost/IWindowHostInfoControl.hpp>
@@ -48,36 +50,72 @@
 #include <FslUtil/EGL/EGLConfigUtil.hpp>
 #include <FslUtil/EGL/EGLStringUtil.hpp>
 #include <FslUtil/EGL/EGLUtil.hpp>
+#include <fmt/core.h>
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstdlib>
 #include <iostream>
+#include <memory>
 #include <vector>
 //#include <EGL/eglext.h>
 #include "Service/EGLHost/EGLHostService.hpp"
 
-#if 0
-#define LOCAL_LOG(X) FSLLOG("EGLDemoHost: " << X)
+#if 1
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define LOCAL_LOG(X) FSLLOG3_VERBOSE4("EGLDemoHost: {}", (X))
 #else
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define LOCAL_LOG(X) \
   {                  \
   }
 #endif
 
 #if 1
-#define LOCAL_LOG_WARNING(X) FSLLOG_WARNING("EGLDemoHost: " << X)
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define LOCAL_LOG_WARNING(X) FSLLOG3_WARNING("EGLDemoHost: {}", (X))
 #else
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define LOCAL_LOG_WARNING(X) \
   {                          \
   }
 #endif
 
-#define EMPTY_VALUE_EGLCONFIG nullptr
+#ifndef EGL_PLATFORM_ANGLE_ANGLE
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define EGL_PLATFORM_ANGLE_ANGLE 0x3202
+#endif
+#ifndef EGL_PLATFORM_ANGLE_TYPE_ANGLE
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define EGL_PLATFORM_ANGLE_TYPE_ANGLE 0x3203
+#endif
+#ifndef EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE 0x3450
+#endif
+#ifndef EGL_PLATFORM_ANGLE_DEVICE_TYPE_ANGLE
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define EGL_PLATFORM_ANGLE_DEVICE_TYPE_ANGLE 0x3209
+#endif
+#ifndef EGL_PLATFORM_ANGLE_DEVICE_TYPE_HARDWARE_ANGLE
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define EGL_PLATFORM_ANGLE_DEVICE_TYPE_HARDWARE_ANGLE 0x320A
+#endif
+#ifndef EGL_PLATFORM_ANGLE_DEBUG_LAYERS_ENABLED
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define EGL_PLATFORM_ANGLE_DEBUG_LAYERS_ENABLED 0x3451
+#endif
+
 
 namespace Fsl
 {
   namespace
   {
+    namespace LocalConfig
+    {
+      constexpr const EGLConfig EmptyValueEGLConfig = nullptr;
+    }
+
     struct RGBConfig
     {
       int32_t R{8};
@@ -187,13 +225,13 @@ namespace Fsl
     }
 
 
-    const Point2 GetEGLSurfaceResolution(EGLDisplay hEglDisplay, EGLSurface hEglSurface)
+    Point2 GetEGLSurfaceResolution(EGLDisplay hEglDisplay, EGLSurface hEglSurface)
     {
-      EGLint windowWidth;
-      EGLint windowHeight;
+      EGLint windowWidth = 0;
+      EGLint windowHeight = 0;
       eglQuerySurface(hEglDisplay, hEglSurface, EGL_WIDTH, &windowWidth);
       eglQuerySurface(hEglDisplay, hEglSurface, EGL_HEIGHT, &windowHeight);
-      return Point2(windowWidth, windowHeight);
+      return {windowWidth, windowHeight};
     }
 
 
@@ -267,7 +305,8 @@ namespace Fsl
         {
           featureConfig.EnableGLES = true;
 
-          int major, minor;
+          int major = 0;
+          int minor = 0;
           DemoHostFeatureUtil::DecodeOpenGLESVersion(itr->Version, major, minor);
           featureConfig.ESVersionMajor = major;
           featureConfig.ESVersionMinor = minor;
@@ -277,7 +316,8 @@ namespace Fsl
         {
           featureConfig.EnableVG = true;
 
-          int major, minor;
+          int major = 0;
+          int minor = 0;
           DemoHostFeatureUtil::DecodeOpenVGVersion(itr->Version, major, minor);
           featureConfig.VGVersion = major;
           featureConfig.Feature = *itr;
@@ -300,7 +340,7 @@ namespace Fsl
         case EGL_ALPHA_SIZE:
           if (finalConfigAttribs[i] < 0)
           {
-            FSLLOG_WARNING(EGLStringUtil::GetConfigEnumToString(finalConfigAttribs[i - 1]) << " can not be negative.");
+            FSLLOG3_WARNING("{} can not be negative.", EGLStringUtil::GetConfigEnumToString(finalConfigAttribs[i - 1]));
           }
           break;
         }
@@ -320,7 +360,7 @@ namespace Fsl
           case ExtensionPrecense::Mandatory:
             throw std::runtime_error(std::string("Required EGL extension '") + request.Name + "' not found");
           case ExtensionPrecense::Optional:
-            FSLLOG_DEBUG("Optional EGL extension '" << request.Name << "' not available.");
+            FSLLOG3_DEBUG_INFO("Optional EGL extension '{}' not available.", request.Name);
             break;
           default:
             throw NotSupportedException("Unsupported ExtensionPrecense");
@@ -330,25 +370,26 @@ namespace Fsl
     }
 
 
-    void DoLogExtensions(const EGLDisplay display)
+    void DoLogExtensions(const EGLDisplay display, const bool isClientExtensions = false)
     {
       auto extensions = EGLUtil::GetExtensions(display);
       std::sort(extensions.begin(), extensions.end());
-      FSLLOG("EGL Extensions");
+      FSLLOG3_INFO_IF(!isClientExtensions, "EGL Extensions");
+      FSLLOG3_INFO_IF(isClientExtensions, "EGL Client Extensions");
       for (const auto& entry : extensions)
       {
-        FSLLOG("- " << entry);
+        FSLLOG3_INFO("- {}", entry);
       }
     }
 
     inline bool IsHDRChannel(const EGLDisplay display, const EGLConfig config, const EGLint attribute)
     {
-      EGLint value;
+      EGLint value = 0;
       if (eglGetConfigAttrib(display, config, attribute, &value) == EGL_TRUE)
       {
         return value > 8;
       }
-      FSLLOG_DEBUG_WARNING("Failed to retrive attribute: " << EGLStringUtil::GetConfigEnumToString(attribute));
+      FSLLOG3_DEBUG_WARNING("Failed to retrieve attribute: {}", EGLStringUtil::GetConfigEnumToString(attribute));
       return false;
     }
 
@@ -370,62 +411,62 @@ namespace Fsl
       const bool hdrFilter = (logMode == EGLDemoHostOptionParser::ConfigLogMode::HDR);
 
       const auto configs = EGLUtil::GetConfigs(display);
-      FSLLOG("EGL display configs: " << configs.size());
+      FSLLOG3_INFO("EGL display configs: {}", configs.size());
       std::size_t index = 0;
       std::size_t foundCount = 0;
       const auto attribs = EGLUtil::GetConfigAttribs();
-      for (const auto config : configs)
+      for (auto* const config : configs)
       {
         if (!hdrFilter || IsHDRConfig(display, config))
         {
           ++foundCount;
-          FSLLOG("*** Config index " << index);
+          FSLLOG3_INFO("*** Config index {}", index);
           for (const auto attribute : attribs)
           {
-            EGLint value;
+            EGLint value = 0;
             if (eglGetConfigAttrib(display, config, attribute, &value) == EGL_TRUE)
             {
-              FSLLOG("- " << EGLStringUtil::GetConfigEnumToString(attribute) << ": " << EGLStringUtil::GetConfigAttribToString(attribute, value));
+              FSLLOG3_INFO("- {}: {}", EGLStringUtil::GetConfigEnumToString(attribute), EGLStringUtil::GetConfigAttribToString(attribute, value));
             }
             else
             {
-              FSLLOG("- " << EGLStringUtil::GetConfigEnumToString(attribute) << ": query failed");
+              FSLLOG3_INFO("- {}: query failed", EGLStringUtil::GetConfigEnumToString(attribute));
             }
           }
         }
         ++index;
       }
-      FSLLOG_IF(hdrFilter && foundCount <= 0, "*** No HDR configs found");
+      FSLLOG3_INFO_IF(hdrFilter && foundCount <= 0, "*** No HDR configs found");
     }
 
 
     void DoLogConfig(const std::vector<EGLint>& finalConfigAttribs)
     {
       // start at 1 so that the size check is simpler
-      FSLLOG("Requested EGL config");
+      FSLLOG3_INFO("Requested EGL config");
       for (std::size_t i = 1; i < finalConfigAttribs.size(); i += 2)
       {
-        FSLLOG(EGLStringUtil::GetConfigEnumToString(finalConfigAttribs[i - 1])
-               << "=" << EGLStringUtil::GetConfigAttribToString(finalConfigAttribs[i - 1], finalConfigAttribs[i]));
+        FSLLOG3_INFO("{}={}", EGLStringUtil::GetConfigEnumToString(finalConfigAttribs[i - 1]),
+                     EGLStringUtil::GetConfigAttribToString(finalConfigAttribs[i - 1], finalConfigAttribs[i]));
       }
     }
 
     void DoLogConfigComparison(EGLDisplay hDisplay, EGLConfig config, const std::vector<EGLint>& finalConfigAttribs)
     {
-      FSLLOG("Final vs requested EGL config");
+      FSLLOG3_INFO("Final vs requested EGL config");
 
       for (std::size_t i = 1; i < finalConfigAttribs.size(); i += 2)
       {
         const EGLint attrib = finalConfigAttribs[i - 1];
         const EGLint requestedValue = finalConfigAttribs[i];
-        EGLint actualValue;
+        EGLint actualValue = 0;
         EGL_CHECK(eglGetConfigAttrib(hDisplay, config, attrib, &actualValue));
 
         if (actualValue != requestedValue)
         {
-          FSLLOG(EGLStringUtil::GetConfigEnumToString(finalConfigAttribs[i - 1])
-                 << " is " << EGLStringUtil::GetConfigAttribToString(finalConfigAttribs[i - 1], actualValue) << " requested "
-                 << EGLStringUtil::GetConfigAttribToString(finalConfigAttribs[i - 1], requestedValue));
+          FSLLOG3_INFO("{} is {} requested {}", EGLStringUtil::GetConfigEnumToString(finalConfigAttribs[i - 1]),
+                       EGLStringUtil::GetConfigAttribToString(finalConfigAttribs[i - 1], actualValue),
+                       EGLStringUtil::GetConfigAttribToString(finalConfigAttribs[i - 1], requestedValue));
         }
       }
     }
@@ -477,25 +518,25 @@ namespace Fsl
     EGLContext DoEGLCreateContext(const EGLDisplay hDisplay, const EGLConfig hConfig, const bool enableGLES, const int eglContextClientVersionMajor,
                                   const int eglContextClientVersionMinor, const int eglContextClientVersionMinimumMinor)
     {
-      EGLint contextAttribListESMajorOnly[] = {EGL_CONTEXT_CLIENT_VERSION, eglContextClientVersionMajor, EGL_NONE};
+      std::array<EGLint, 3> contextAttribListESMajorOnly = {EGL_CONTEXT_CLIENT_VERSION, eglContextClientVersionMajor, EGL_NONE};
       bool supportsMinorVersion = true;
 #if defined(EGL_CONTEXT_MAJOR_VERSION) && defined(EGL_CONTEXT_MINOR_VERSION)
-      EGLint contextAttribListESMajorMinor[] = {EGL_CONTEXT_MAJOR_VERSION, eglContextClientVersionMajor, EGL_CONTEXT_MINOR_VERSION,
-                                                eglContextClientVersionMinor, EGL_NONE};
-      EGLint* contextAttribListES =
-        (eglContextClientVersionMajor < 3 || eglContextClientVersionMinor == 0) ? contextAttribListESMajorOnly : contextAttribListESMajorMinor;
+      std::array<EGLint, 5> contextAttribListESMajorMinor = {EGL_CONTEXT_MAJOR_VERSION, eglContextClientVersionMajor, EGL_CONTEXT_MINOR_VERSION,
+                                                             eglContextClientVersionMinor, EGL_NONE};
+      EGLint* contextAttribListES = (eglContextClientVersionMajor < 3 || eglContextClientVersionMinor == 0) ? contextAttribListESMajorOnly.data()
+                                                                                                            : contextAttribListESMajorMinor.data();
 #elif defined(EGL_CONTEXT_MAJOR_VERSION_KHR) && defined(EGL_CONTEXT_MINOR_VERSION_KHR)
-      EGLint contextAttribListESMajorMinor[] = {EGL_CONTEXT_MAJOR_VERSION_KHR, eglContextClientVersionMajor, EGL_CONTEXT_MINOR_VERSION_KHR,
-                                                eglContextClientVersionMinor, EGL_NONE};
-      EGLint* contextAttribListES =
-        (eglContextClientVersionMajor < 3 || eglContextClientVersionMinor == 0) ? contextAttribListESMajorOnly : contextAttribListESMajorMinor;
+      std::array<EGLint, 5> contextAttribListESMajorMinor = {EGL_CONTEXT_MAJOR_VERSION_KHR, eglContextClientVersionMajor,
+                                                             EGL_CONTEXT_MINOR_VERSION_KHR, eglContextClientVersionMinor, EGL_NONE};
+      EGLint* contextAttribListES = (eglContextClientVersionMajor < 3 || eglContextClientVersionMinor == 0) ? contextAttribListESMajorOnly.data()
+                                                                                                            : contextAttribListESMajorMinor.data();
 #else
-      EGLint* contextAttribListES = contextAttribListESMajorOnly;
-      FSLLOG_WARNING_IF(eglContextClientVersionMinor != 0, "EGL does not supported requesting a minor version. Hoping for the best");
+      EGLint* contextAttribListES = contextAttribListESMajorOnly.data();
+      FSLLOG3_WARNING_IF(eglContextClientVersionMinor != 0, "EGL does not supported requesting a minor version. Hoping for the best");
       supportsMinorVersion = false;
 #endif
-      EGLint contextAttribListVG[] = {EGL_NONE};
-      EGLint* contextAttribList = (enableGLES ? contextAttribListES : contextAttribListVG);
+      std::array<EGLint, 1> contextAttribListVG = {EGL_NONE};
+      EGLint* contextAttribList = (enableGLES ? contextAttribListES : contextAttribListVG.data());
 
       EGLContext hContext = eglCreateContext(hDisplay, hConfig, EGL_NO_CONTEXT, contextAttribList);
       if (hContext == EGL_NO_CONTEXT)
@@ -511,9 +552,8 @@ namespace Fsl
         }
         else if (eglError != EGL_SUCCESS)
         {
-          std::stringstream stream;
-          stream << "Failed to create the requested context with error code " << eglError << " at " << __FILE__ << "(" << __LINE__ << ")";
-          throw EGLGraphicsException(stream.str(), eglError, __FILE__, __LINE__);
+          throw EGLGraphicsException(fmt::format("Failed to create the requested context with error code {} at {}({})", eglError, __FILE__, __LINE__),
+                                     eglError, __FILE__, __LINE__);
         }
         else
         {
@@ -594,12 +634,12 @@ namespace Fsl
     {
       auto customAppAglConfigAttribs = RemoveAttribs(appAglConfigAttribs, {EGL_DEPTH_SIZE});
       {
-        FSLLOG("- Trying with a different color depth and depth buffer size. (D=" << preferredDepthBufferSize << ")");
+        FSLLOG3_INFO("- Trying with a different color depth and depth buffer size. (D={})", preferredDepthBufferSize);
         BuildEGLConfig(rFinalConfigAttribs, customAppAglConfigAttribs, configControl, featureConfig, options, preferredRGBConfig,
                        preferredDepthBufferSize);
 
         // Lets try again
-        EGLint numConfigs;
+        EGLint numConfigs = 0;
         EGL_CHECK(eglChooseConfig(hDisplay, rFinalConfigAttribs.data(), &rEGLConfig, 1, &numConfigs));
         if (numConfigs == 1)
         {
@@ -617,13 +657,12 @@ namespace Fsl
     {
       auto customAppAglConfigAttribs = RemoveAttribs(appAglConfigAttribs, {EGL_RED_SIZE, EGL_GREEN_SIZE, EGL_BLUE_SIZE});
       {
-        FSLLOG("- Trying with a different color depth. (R=" << preferredRGBConfig.R << " G=" << preferredRGBConfig.G << " B=" << preferredRGBConfig.B
-                                                            << ")");
+        FSLLOG3_INFO("- Trying with a different color depth. (R={} G={} B={})", preferredRGBConfig.R, preferredRGBConfig.G, preferredRGBConfig.B);
         BuildEGLConfig(rFinalConfigAttribs, customAppAglConfigAttribs, configControl, featureConfig, options, preferredRGBConfig,
                        preferredDepthBufferSize);
 
         // Lets try again
-        EGLint numConfigs;
+        EGLint numConfigs = 0;
         EGL_CHECK(eglChooseConfig(hDisplay, rFinalConfigAttribs.data(), &rEGLConfig, 1, &numConfigs));
         if (numConfigs == 1)
         {
@@ -634,11 +673,89 @@ namespace Fsl
       return TryConfigFallbackDepth(hDisplay, rFinalConfigAttribs, customAppAglConfigAttribs, configControl, featureConfig, options,
                                     preferredRGBConfig, preferredDepthBufferSize, rEGLConfig);
     }
+
+    bool DetectEGLClientExtensionsSupport()
+    {
+      // EGL_EXT_client_extensions
+      const auto* pszExtensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
+      if (pszExtensions == nullptr)
+      {
+        auto error = eglGetError();
+        if (error != EGL_BAD_DISPLAY)
+        {
+          FSLLOG3_VERBOSE2("Unexpected error from query {}");
+        }
+        return false;
+      }
+      // EGL_EXT_client_extensions might be supported, lets verify it
+      auto extensions = StringUtil::Split(pszExtensions, ' ', true);
+      return std::find(extensions.begin(), extensions.end(), "EGL_EXT_client_extensions") != extensions.end();
+    }
+
+    bool HasAngleSupport(const bool logExtensions)
+    {
+      auto supported = DetectEGLClientExtensionsSupport();
+      if (!supported)
+      {
+        return false;
+      }
+      FSLLOG3_VERBOSE3("EGL_EXT_client_extensions: supported");
+
+      if (logExtensions)
+      {
+        DoLogExtensions(EGL_NO_DISPLAY, true);
+      }
+
+      if (!EGLUtil::HasExtension(EGL_NO_DISPLAY, "EGL_EXT_platform_base"))
+      {
+        return false;
+      }
+      FSLLOG3_VERBOSE3("EGL_EXT_platform_base: supported");
+
+      if (!EGLUtil::HasExtension(EGL_NO_DISPLAY, "EGL_ANGLE_platform_angle"))
+      {
+        return false;
+      }
+
+      FSLLOG3_VERBOSE3("EGL_ANGLE_platform_angle: supported");
+      return true;
+    }
+
+    bool TryGetAngleDisplay(EGLDisplay& rDisplay, EGLNativeDisplayType nativeDisplayType)
+    {
+      rDisplay = EGL_NO_DISPLAY;
+      auto eglGetPlatformDisplayEXT =
+        reinterpret_cast<EGLDisplay(EGLAPIENTRY*)(EGLenum, void*, const EGLint*)>(eglGetProcAddress("eglGetPlatformDisplayEXT"));
+      if (eglGetPlatformDisplayEXT == nullptr)
+      {
+        FSLLOG3_WARNING("Failed to get eglGetPlatformDisplayEXT");
+        return false;
+      }
+
+      if (!EGLUtil::HasExtension(EGL_NO_DISPLAY, "EGL_ANGLE_platform_angle_vulkan"))
+      {
+        return false;
+      }
+      FSLLOG3_VERBOSE3("EGL_ANGLE_platform_angle_vulkan: supported");
+
+      // eglGetPlatformDisplayEXT(EGLenum platform, void *native_display, const EGLint *attrib_list)
+
+      std::array<EGLint, 7> attribList = {EGL_PLATFORM_ANGLE_TYPE_ANGLE,
+                                          EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE,
+                                          EGL_PLATFORM_ANGLE_DEVICE_TYPE_ANGLE,
+                                          EGL_PLATFORM_ANGLE_DEVICE_TYPE_HARDWARE_ANGLE,
+                                          EGL_PLATFORM_ANGLE_DEBUG_LAYERS_ENABLED,
+                                          EGL_FALSE,
+                                          EGL_NONE};
+      rDisplay = eglGetPlatformDisplayEXT(EGL_PLATFORM_ANGLE_ANGLE, nativeDisplayType, attribList.data());
+      EGL_CHECK_FOR_ERROR();
+      return true;
+    }
   }
 
 
   EGLDemoHost::EGLDemoHost(const DemoHostConfig& demoHostConfig)
-    : ADemoHost(demoHostConfig)
+    : ADemoHost(demoHostConfig, false)
     , m_demoHostConfig(demoHostConfig)
     , m_eglContextClientVersionMajor(0)
     , m_eglContextClientVersionMinor(0)
@@ -649,7 +766,7 @@ namespace Fsl
     , m_hDisplay(EGL_NO_DISPLAY)
     , m_hSurface(EGL_NO_SURFACE)
     , m_hContext(EGL_NO_CONTEXT)
-    , m_hConfig(EMPTY_VALUE_EGLCONFIG)
+    , m_hConfig(LocalConfig::EmptyValueEGLConfig)
     , m_isActivated(true)
     , m_options(demoHostConfig.GetOptions<EGLDemoHostOptionParser>())
     , m_configControl(ConfigControl::Default)
@@ -717,8 +834,9 @@ namespace Fsl
       m_logExtensions = m_options->IsLogExtensionsEnabled();
 
       // Prepare the native window setup
-      m_nativeWindowSetup.reset(new NativeWindowSetup(demoHostConfig.GetDemoHostAppSetup().AppSetup.ApplicationName, demoHostConfig.GetEventQueue(),
-                                                      m_options->GetNativeWindowConfig(), m_demoHostConfig.GetVerbosityLevel()));
+      m_nativeWindowSetup =
+        std::make_unique<NativeWindowSetup>(demoHostConfig.GetDemoHostAppSetup().AppSetup.ApplicationName, demoHostConfig.GetEventQueue(),
+                                            m_options->GetNativeWindowConfig(), m_demoHostConfig.GetVerbosityLevel());
     }
     catch (const std::exception&)
     {
@@ -739,7 +857,7 @@ namespace Fsl
     }
     catch (const std::exception& ex)
     {
-      FSLLOG_ERROR("EGLDemoHost destructor can not throw so aborting. " << ex.what())
+      FSLLOG3_ERROR("EGLDemoHost destructor can not throw so aborting. {}", ex.what())
       std::abort();
     }
   }
@@ -782,17 +900,22 @@ namespace Fsl
   }
 
 
-  Point2 EGLDemoHost::GetScreenResolution() const
+  DemoWindowMetrics EGLDemoHost::GetWindowMetrics() const
   {
     assert(!m_enableGLES || m_eglContextClientVersionMajor > 0);
     // The EGL state should be 100% ready
     assert(m_hDisplay != EGL_NO_DISPLAY);
     assert(m_hContext != EGL_NO_CONTEXT);
     assert(m_hSurface != EGL_NO_SURFACE);
-    assert(m_hConfig != EMPTY_VALUE_EGLCONFIG);
+    assert(m_hConfig != LocalConfig::EmptyValueEGLConfig);
     assert(m_window);
 
-    return GetEGLSurfaceResolution(m_hDisplay, m_hSurface);
+    const auto size = GetEGLSurfaceResolution(m_hDisplay, m_hSurface);
+
+    auto nativeWindowMetrics = (m_window ? m_window->GetWindowMetrics() : NativeWindowMetrics());
+
+    PxExtent2D extent(std::max(size.X, 0), std::max(size.Y, 0));
+    return {extent, nativeWindowMetrics.ExactDpi, nativeWindowMetrics.DensityDpi};
   }
 
 
@@ -808,7 +931,7 @@ namespace Fsl
     assert(m_hDisplay != EGL_NO_DISPLAY);
     assert(m_hContext != EGL_NO_CONTEXT);
     assert(m_hSurface != EGL_NO_SURFACE);
-    assert(m_hConfig != EMPTY_VALUE_EGLCONFIG);
+    assert(m_hConfig != LocalConfig::EmptyValueEGLConfig);
     return (eglSwapBuffers(m_hDisplay, m_hSurface) == EGL_TRUE ? SwapBuffersResult::Completed : SwapBuffersResult::Failed);
   }
 
@@ -869,17 +992,34 @@ namespace Fsl
     assert(m_hDisplay == EGL_NO_DISPLAY);
     assert(m_hContext == EGL_NO_CONTEXT);
     assert(m_hSurface == EGL_NO_SURFACE);
-    assert(m_hConfig == EMPTY_VALUE_EGLCONFIG);
+    assert(m_hConfig == LocalConfig::EmptyValueEGLConfig);
+
+    // The OpenVG reference implementation EGL layer fails if this is executed before init.
+    // So for now if we are using OpenVG we do not check for Angle support.
+    const bool hasAngleSupport = !m_enableVG ? HasAngleSupport(m_logExtensions) : false;
 
     // Acquire the various native display handles
     EGLNativeDisplayType hDisplay = m_windowSystem->GetDisplayType();
     try
     {
-      m_hDisplay = EGL_CHECK(eglGetDisplay(hDisplay));
+      bool useDefault = true;
+      if (hasAngleSupport)
+      {
+        useDefault = !TryGetAngleDisplay(m_hDisplay, hDisplay);
+        FSLLOG3_VERBOSE2("Customized angle display enabled: {}", !useDefault);
+      }
+      if (useDefault)
+      {
+        m_hDisplay = EGL_CHECK(eglGetDisplay(hDisplay));
+      }
 
       LOCAL_LOG("Initialize");
       // Configure the display
-      EGL_CHECK(eglInitialize(m_hDisplay, nullptr, nullptr));
+      EGLint majorVersion = 0;
+      EGLint minorVersion = 0;
+      EGL_CHECK(eglInitialize(m_hDisplay, &majorVersion, &minorVersion));
+      FSLLOG3_VERBOSE("EGL V{}.{}", majorVersion, minorVersion);
+
 
       // Update the host service
       m_hostService->SetDisplay(m_hDisplay);
@@ -903,7 +1043,7 @@ namespace Fsl
       // Take a copy of the final user desired config so we can use it for logging purposes later.
       std::vector<EGLint> finalConfigAttribsCopy = m_finalConfigAttribs;
 
-      EGLint numConfigs;
+      EGLint numConfigs = 0;
       EGL_CHECK(eglChooseConfig(m_hDisplay, m_finalConfigAttribs.data(), &m_hConfig, 1, &numConfigs));
 
       if (numConfigs != 1)
@@ -957,14 +1097,15 @@ namespace Fsl
   }
 
 
-  bool EGLDemoHost::TryInitEGLTryConfigFallback(const ConfigControl configControl, const std::deque<EGLint>& appEglConfigAttribs)
+  bool EGLDemoHost::TryInitEGLTryConfigFallback(const ConfigControl configControl, const std::deque<EGLint>& appEglConfigAttribs,
+                                                const bool isLastResort)
   {
     if (!m_enableGLES)
     {
       return false;
     }
 
-    FSLLOG_WARNING("Preferred configuration not available, trying to locate a alternative.");
+    FSLLOG3_WARNING("Preferred configuration not available, trying to locate a alternative.");
     if (configControl != ConfigControl::Exact)
     {
       if (TryConfigFallbackDepth(m_hDisplay, m_finalConfigAttribs, appEglConfigAttribs, m_configControl, m_featureConfig, m_options,
@@ -991,7 +1132,7 @@ namespace Fsl
     // If the app requested a exact config, lets try to do a merge instead
     if (configControl == ConfigControl::Exact)
     {
-      FSLLOG("- Switching to merge app and default config.");
+      FSLLOG3_INFO("- Switching to merge app and default config.");
       if (TryInitEGLTryConfigFallback(ConfigControl::Overwrite, appEglConfigAttribs))
       {
         return true;
@@ -999,11 +1140,11 @@ namespace Fsl
     }
 
     // As a last resort lets try to ignore the app
-    if (!appEglConfigAttribs.empty())
+    if (!isLastResort && !appEglConfigAttribs.empty())
     {
-      FSLLOG("- Ignoring the app requested config.");
+      FSLLOG3_INFO("- Ignoring the app requested config.");
       std::deque<EGLint> emptyAppAglConfigAttribs = {EGL_NONE};
-      if (TryInitEGLTryConfigFallback(configControl, emptyAppAglConfigAttribs))
+      if (TryInitEGLTryConfigFallback(configControl, emptyAppAglConfigAttribs, true))
       {
         return true;
       }
@@ -1018,9 +1159,9 @@ namespace Fsl
 
     assert(!m_enableGLES || m_eglContextClientVersionMajor > 0);
     assert(m_hDisplay != EGL_NO_DISPLAY);
-    assert(m_hConfig != EMPTY_VALUE_EGLCONFIG);
+    assert(m_hConfig != LocalConfig::EmptyValueEGLConfig);
     assert(m_window);
-    if (m_hDisplay == EGL_NO_DISPLAY || m_hConfig == EMPTY_VALUE_EGLCONFIG || !m_window)
+    if (m_hDisplay == EGL_NO_DISPLAY || m_hConfig == LocalConfig::EmptyValueEGLConfig || !m_window)
     {
       return;
     }
@@ -1075,7 +1216,7 @@ namespace Fsl
       return;
     }
 
-    assert(m_hConfig != EMPTY_VALUE_EGLCONFIG);
+    assert(m_hConfig != LocalConfig::EmptyValueEGLConfig);
     assert(m_window);
 
     EGL_LOG_ERROR(eglMakeCurrent(m_hDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT));
@@ -1114,7 +1255,7 @@ namespace Fsl
       m_windowHostInfoControl->RemoveWindow(m_window);
       m_window.reset();
 
-      m_hConfig = EMPTY_VALUE_EGLCONFIG;
+      m_hConfig = LocalConfig::EmptyValueEGLConfig;
       LOCAL_LOG("Terminating egl");
       eglTerminate(m_hDisplay);
       m_hDisplay = EGL_NO_DISPLAY;

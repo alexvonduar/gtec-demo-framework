@@ -31,7 +31,6 @@
  *
  ****************************************************************************************************************************************************/
 
-#include <FslBase/Noncopyable.hpp>
 #include <FslDemoHost/Base/Setup/IDemoHostRegistry.hpp>
 #include <deque>
 #include <memory>
@@ -40,22 +39,23 @@ namespace Fsl
 {
   class DemoHostFeature;
 
-  class DemoHostRegistry
-    : public IDemoHostRegistry
-    , private Noncopyable
+  class DemoHostRegistry : public IDemoHostRegistry
   {
     struct Record
     {
       DemoHostSetup HostSetup;
       std::deque<DemoHostFeatureName::Enum> Features;
 
-      Record(const DemoHostFeatureName::Enum feature, const DemoHostSetup& hostSetup);
-      Record(const std::deque<DemoHostFeatureName::Enum>& features, const DemoHostSetup& hostSetup);
+      Record(const DemoHostFeatureName::Enum feature, DemoHostSetup hostSetup);
+      Record(std::deque<DemoHostFeatureName::Enum> features, DemoHostSetup hostSetup);
     };
 
     std::deque<Record> m_records;
 
   public:
+    DemoHostRegistry(const DemoHostRegistry&) = delete;
+    DemoHostRegistry& operator=(const DemoHostRegistry&) = delete;
+
     DemoHostRegistry();
     DemoHostSetup GetSetup(const std::deque<DemoHostFeature>& features) const;
 

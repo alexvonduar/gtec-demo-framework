@@ -31,7 +31,7 @@
 
 #include <FslGraphics3D/Camera/FirstPersonCamera.hpp>
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/Math/Vector3.hpp>
 #include <FslBase/Math/Vector4.hpp>
 #include <FslBase/Math/Matrix.hpp>
@@ -54,10 +54,6 @@ namespace Fsl
       , m_hasOldPosition(false)
     {
     }
-
-
-    FirstPersonCamera::~FirstPersonCamera() = default;
-
 
     void FirstPersonCamera::SetPosition(const Vector3& position)
     {
@@ -109,11 +105,11 @@ namespace Fsl
     }
 
 
-    void FirstPersonCamera::RotateViaPosition(const bool rotateCamera, const Point2& currentPosition)
+    void FirstPersonCamera::RotateViaPosition(const bool rotateCamera, const PxPoint2& currentPosition)
     {
       if (rotateCamera && m_hasOldPosition)
       {
-        Point2 deltaPosition = currentPosition - m_oldPosition;
+        PxPoint2 deltaPosition = currentPosition - m_oldPosition;
         if (deltaPosition.X != 0 || deltaPosition.Y != 0)
         {
           Rotate(Vector2(deltaPosition.X, -deltaPosition.Y));

@@ -30,9 +30,10 @@
  ****************************************************************************************************************************************************/
 
 #include <FslUtil/Vulkan1_0/Util/SwapchainKHRUtil.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslUtil/Vulkan1_0/Exceptions.hpp>
 #include <FslUtil/Vulkan1_0/Log/All.hpp>
+#include <FslUtil/Vulkan1_0/Log/FmtAll.hpp>
 #include <FslUtil/Vulkan1_0/SurfaceFormatInfo.hpp>
 #include <FslUtil/Vulkan1_0/Util/PhysicalDeviceKHRUtil.hpp>
 #include <RapidVulkan/Check.hpp>
@@ -47,6 +48,7 @@
 #include <RapidVulkan/Debug/Strings/VkPresentModeKHR.hpp>
 #include <RapidVulkan/Debug/Strings/VkSharingMode.hpp>
 #include <RapidVulkan/Debug/Strings/VkSurfaceTransformFlagBitsKHR.hpp>
+#include <fmt/ostream.h>
 #include <algorithm>
 #include <cassert>
 // Included last as a workaround to ensure all types are found
@@ -62,33 +64,34 @@ namespace Fsl
       {
         inline void LogCreate(const VkSwapchainCreateInfoKHR& swapchainCreateInfo)
         {
-          if (Fsl::Logger::GetLogLevel() < LogType::Verbose2)
+          if (Fsl::LogConfig::GetLogLevel() < LogType::Verbose2)
           {
             return;
           }
 
-          FSLLOG("Creating swapchain with");
-          FSLLOG("- swapchainCreateInfo.minImageCount: " << swapchainCreateInfo.minImageCount);
-          FSLLOG("- swapchainCreateInfo.imageFormat: " << static_cast<uint32_t>(swapchainCreateInfo.imageFormat) << " ("
-                                                       << RapidVulkan::Debug::ToString(swapchainCreateInfo.imageFormat) << ")");
+          FSLLOG3_INFO("Creating swapchain with");
+          FSLLOG3_INFO("- swapchainCreateInfo.minImageCount: {}", swapchainCreateInfo.minImageCount);
+          FSLLOG3_INFO("- swapchainCreateInfo.imageFormat: {} ({})", static_cast<uint32_t>(swapchainCreateInfo.imageFormat),
+                       RapidVulkan::Debug::ToString(swapchainCreateInfo.imageFormat));
 #ifdef RAPIDVULKAN_VULKAN_VERSION_MAJOR
-          FSLLOG("- swapchainCreateInfo.imageColorSpace: " << static_cast<uint32_t>(swapchainCreateInfo.imageColorSpace) << " ("
-                                                           << RapidVulkan::Debug::ToString(swapchainCreateInfo.imageColorSpace) << ")");
+          FSLLOG3_INFO("- swapchainCreateInfo.imageColorSpace: {} ({})", static_cast<uint32_t>(swapchainCreateInfo.imageColorSpace),
+                       RapidVulkan::Debug::ToString(swapchainCreateInfo.imageColorSpace));
 #else
-          FSLLOG("- swapchainCreateInfo.imageColorSpace: " << static_cast<uint32_t>(swapchainCreateInfo.imageColorSpace));
+          FSLLOG3_INFO("- swapchainCreateInfo.imageColorSpace: {}", static_cast<uint32_t>(swapchainCreateInfo.imageColorSpace));
 #endif
-          FSLLOG("- swapchainCreateInfo.imageExtent: " << swapchainCreateInfo.imageExtent);
-          FSLLOG("- swapchainCreateInfo.imageUsage: " << Debug::GetBitflagsString(static_cast<VkImageUsageFlagBits>(swapchainCreateInfo.imageUsage)));
+          FSLLOG3_INFO("- swapchainCreateInfo.imageExtent: {}", swapchainCreateInfo.imageExtent);
+          FSLLOG3_INFO("- swapchainCreateInfo.imageUsage: {}",
+                       Debug::GetBitflagsString(static_cast<VkImageUsageFlagBits>(swapchainCreateInfo.imageUsage)));
 
-          FSLLOG("- swapchainCreateInfo.imageSharingMode: " << static_cast<uint32_t>(swapchainCreateInfo.imageSharingMode) << " ("
-                                                            << RapidVulkan::Debug::ToString(swapchainCreateInfo.imageSharingMode) << ")");
+          FSLLOG3_INFO("- swapchainCreateInfo.imageSharingMode: {} ({})", static_cast<uint32_t>(swapchainCreateInfo.imageSharingMode),
+                       RapidVulkan::Debug::ToString(swapchainCreateInfo.imageSharingMode));
 
-          FSLLOG("- swapchainCreateInfo.queueFamilyIndexCount: " << swapchainCreateInfo.queueFamilyIndexCount);
-          FSLLOG("- swapchainCreateInfo.preTransform: " << Debug::GetBitflagsString(swapchainCreateInfo.preTransform));
-          FSLLOG("- swapchainCreateInfo.compositeAlpha: " << Debug::GetBitflagsString(swapchainCreateInfo.compositeAlpha));
-          FSLLOG("- swapchainCreateInfo.presentMode: " << static_cast<uint32_t>(swapchainCreateInfo.presentMode) << " ("
-                                                       << RapidVulkan::Debug::ToString(swapchainCreateInfo.presentMode) << ")");
-          FSLLOG("- swapchainCreateInfo.clipped: " << (swapchainCreateInfo.clipped != VK_FALSE));
+          FSLLOG3_INFO("- swapchainCreateInfo.queueFamilyIndexCount: {}", swapchainCreateInfo.queueFamilyIndexCount);
+          FSLLOG3_INFO("- swapchainCreateInfo.preTransform: {}", Debug::GetBitflagsString(swapchainCreateInfo.preTransform));
+          FSLLOG3_INFO("- swapchainCreateInfo.compositeAlpha: {}", Debug::GetBitflagsString(swapchainCreateInfo.compositeAlpha));
+          FSLLOG3_INFO("- swapchainCreateInfo.presentMode: {} ({})", static_cast<uint32_t>(swapchainCreateInfo.presentMode),
+                       RapidVulkan::Debug::ToString(swapchainCreateInfo.presentMode));
+          FSLLOG3_INFO("- swapchainCreateInfo.clipped: {}", (swapchainCreateInfo.clipped != VK_FALSE));
         }
       }
 
@@ -129,7 +132,7 @@ namespace Fsl
         // size will be determined by the extent of a swapchain targeting the surface.
         if (surfaceCapabilities.currentExtent.width == 0xFFFFFFFF && surfaceCapabilities.currentExtent.height == 0xFFFFFFFF)
         {
-          FSLLOG2(LogType::Verbose, "Using fallback extent as surface will be determined by the extent of a swapchain targeting the surface");
+          FSLLOG3_VERBOSE("Using fallback extent as surface will be determined by the extent of a swapchain targeting the surface");
           surfaceCapabilities.currentExtent = fallbackExtent;
         }
 
@@ -152,7 +155,8 @@ namespace Fsl
         swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
         swapchainCreateInfo.flags = flags;
         swapchainCreateInfo.surface = surface;
-        swapchainCreateInfo.minImageCount = std::min(desiredMinImageCount, surfaceCapabilities.maxImageCount);
+        swapchainCreateInfo.minImageCount =
+          std::max(std::min(desiredMinImageCount, surfaceCapabilities.maxImageCount), surfaceCapabilities.minImageCount);
         swapchainCreateInfo.imageFormat = imageFormat;
         swapchainCreateInfo.imageColorSpace = imageColorSpace;
         swapchainCreateInfo.imageExtent = surfaceCapabilities.currentExtent;
@@ -171,8 +175,8 @@ namespace Fsl
         if (std::find(surfacePresentModes.begin(), surfacePresentModes.end(), swapchainCreateInfo.presentMode) == surfacePresentModes.end())
         {
           constexpr auto presentModeFallback = VK_PRESENT_MODE_FIFO_KHR;    // This is the only value of presentMode that is required to be supported
-          FSLLOG_WARNING("PresentMode: " << RapidVulkan::Debug::ToString(swapchainCreateInfo.presentMode)
-                                         << " not supported, using fallback: " << RapidVulkan::Debug::ToString(presentModeFallback));
+          FSLLOG3_WARNING("PresentMode: {} not supported, using fallback: {}", RapidVulkan::Debug::ToString(swapchainCreateInfo.presentMode),
+                          RapidVulkan::Debug::ToString(presentModeFallback));
           swapchainCreateInfo.presentMode = presentModeFallback;
         }
 
@@ -187,9 +191,12 @@ namespace Fsl
         //  swapchainCreateInfo.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         //}
 
-        FSLLOG_WARNING_IF(desiredMinImageCount > swapchainCreateInfo.minImageCount, "CreateSwapchain minImageCount was limited to "
-                                                                                      << swapchainCreateInfo.minImageCount << " instead of "
-                                                                                      << desiredMinImageCount << " due to device limits");
+        FSLLOG3_WARNING_IF(desiredMinImageCount > swapchainCreateInfo.minImageCount,
+                           "CreateSwapchain minImageCount was limited to {} instead of {} due to device limits", swapchainCreateInfo.minImageCount,
+                           desiredMinImageCount);
+        FSLLOG3_VERBOSE_IF(desiredMinImageCount < swapchainCreateInfo.minImageCount,
+                           "CreateSwapchain minImageCount was upgraded to {} instead of {} due to device limits", swapchainCreateInfo.minImageCount,
+                           desiredMinImageCount);
 
         LogCreate(swapchainCreateInfo);
         return VUSwapchainKHR(device, swapchainCreateInfo);
@@ -197,7 +204,7 @@ namespace Fsl
 
       std::vector<VkImage> GetSwapchainImagesKHR(const VkDevice device, const VkSwapchainKHR swapchain)
       {
-        uint32_t count;
+        uint32_t count = 0;
         RAPIDVULKAN_CHECK2(vkGetSwapchainImagesKHR(device, swapchain, &count, nullptr), "could not get swap chain images size");
 
         std::vector<VkImage> result(count);

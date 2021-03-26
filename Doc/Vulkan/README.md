@@ -189,7 +189,7 @@ namespace Fsl
   {
     // 1. Change the default demo-framework app resize strategy to allow the app to keep running on resize
     CustomDemoAppConfig customDemoAppConfig;
-    customDemoAppConfig.RestartOnResize = false;
+    customDemoAppConfig.RestartFlags = CustomDemoAppConfigRestartFlags::Never;
 
     DemoAppHostConfigVulkan config;
 
@@ -204,7 +204,7 @@ With that done the Vulkan app template resize strategy will be used and the Vulk
 Strategy name    | Description
 -----------------|-----------------------------------------------------------------------------------------------------
 Disabled         | The application takes full control and responsibility for supporting the resize.
-RebuildResources | The Resized method is called and it is responsible for recreating dependent resources. **(Default)**
+RebuildResources | The ConfigurationChanged method is called and it is responsible for recreating dependent resources. **(Default)**
 
 The policy can be changed by modifying the ```DemoAppVulkanSetup``` struct supplied to the ```DemoAppVulkanBasic``` constructor.
 
@@ -238,13 +238,13 @@ CustomDemoApp::CustomDemoApp(const DemoAppConfig& config)
 
 #### Resize strategy Disabled
 
-The applications "Resized" method is called and its up to it to recreate all resources that requires it.
+The applications "ConfigurationChanged" method is called and its up to it to recreate all resources that requires it.
 
 #### Resize strategy RebuildResources
 
 The RebuildResources resize policy checks if any resources are allocated and if there is it call DestroyResources followed by BuildResources. While this can be slightly expensive it requires a minimum amount of work to support for most apps and it will be less expensive than destroying and restarting the app. Furthermore as the app isn't restarted there is no need to save any state for most apps as only Vulkan 'dependent' resources are destroyed and recreated.
 
-Beware that the app is responsible for making sure that it supports resizing, so anything that is dependent on the window size will need to be updated. This is what the ```Resized``` callback is for.
+Beware that the app is responsible for making sure that it supports resizing, so anything that is dependent on the window size will need to be updated. This is what the ```ConfigurationChanged``` callback is for.
 
 A high level sequence overview.
 
@@ -252,7 +252,7 @@ A high level sequence overview.
 <img src="Images/DemoAppVulkanBasic_Flow_Resize.svg">
 </a>
 
-Following a successful ```Resized``` operation the normal frame sequence is resumed.
+Following a successful ```ConfigurationChanged``` operation the normal frame sequence is resumed.
 
 ## Build resources
 
@@ -344,12 +344,6 @@ namespace Fsl
 }
 ```
 
-### Device extensions
-
-Are not currently supported!
-
-The plan is to enable them via the same scheme we employ for Device extensions.
-
 ## Hints
 
 ### Misc tips
@@ -378,10 +372,8 @@ The plan is to enable them via the same scheme we employ for Device extensions.
 - Most samples refill the command-buffer every frame even when its not strictly necessary.
 - The UI meshes are currently rebuild every frame, even when the UI is not modified.
 - DemoAppVulkanBasic: The depth buffer format selection can not be modified.
-- DemoAppVulkanBasic: The maximum number of in-flight frames is currently set to two.
 - Package FslUtil.Vulkan1_0: is still a work in progress.
 - The physical device feature request mechanism does not support 'grouping' a request like 'TextureCompressionASTC_LDR, TextureCompressionBC or TextureCompressionETC2. To do this the app should set all of them to optional and then check if it got one of them.
-- Device extensions can not be requested.
 - Console based Vulkan apps do not have a DemoHost yet. So they are 100% freestyle apps.
 - The samples often chose the 'simple' but not optimal solution for doing things as its simpler to understand. A common example is texture loading which most samples load from the main thread and in sequence not taking advantage of the abilities for Vulkan to do this from multiple threads. Even for the case were we only want to use one thread it has multiple synchronization points to ensure that once the 'load' call returns the texture is ready. For a real production application it would be more optimal to 'batch' the loading requests and then wait for all of them to complete at the end instead. A future update will most likely introduce a more optimal loader that enables this scenario.
 - Some samples work on uncompressed textures just because its supported on all platforms and its performance is good enough for whats being demonstrated.
@@ -442,7 +434,7 @@ TextureCompression         |    Y    |
 Texturing                  |         |
 TexturingArrays            |         |
 TexturingCubeMap           |         |
-Triangle                   |         |
+Triangle                   |    Y    |
 Vulkan101                  |    Y    |
 VulkanComputeMandelbrot    |         |
 VulkanInfo                 |         |

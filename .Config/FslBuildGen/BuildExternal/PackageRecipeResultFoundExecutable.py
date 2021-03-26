@@ -31,10 +31,11 @@
 #
 #****************************************************************************************************************************************************
 
-from typing import Dict
+#from typing import Dict
+from FslBuildGen.Version import Version
 
 class PackageRecipeResultFoundExecutable(object):
-    def __init__(self, primaryExeName: str, exeName: str, path: str) -> None:
+    def __init__(self, primaryExeName: str, exeName: str, path: str, version: Version) -> None:
         """
         Contains information about the found executable
         """
@@ -42,3 +43,4 @@ class PackageRecipeResultFoundExecutable(object):
         self.PrimaryName = primaryExeName
         self.ExeName = exeName
         self.Path = path
+        self.Version = version

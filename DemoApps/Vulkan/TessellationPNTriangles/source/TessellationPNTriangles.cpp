@@ -13,33 +13,32 @@
 // Recreated as a DemoFramework freestyle window sample by Freescale (2016)
 
 #include "TessellationPNTriangles.hpp"
+#include <FslBase/UncheckedNumericCast.hpp>
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslGraphics/Bitmap/Bitmap.hpp>
 #include <FslGraphics/Texture/Texture.hpp>
+#include <FslUtil/Vulkan1_0/TypeConverter.hpp>
 #include <FslUtil/Vulkan1_0/Exceptions.hpp>
-#include <FslUtil/Vulkan1_0/Util/ConvertUtil.hpp>
 #include <RapidVulkan/Check.hpp>
 #include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstring>
 #include <iomanip>
+#include <sstream>
 #include <vector>
 
 namespace Fsl
 {
-  using namespace Vulkan;
-  using namespace Vulkan::ConvertUtil;
-  using namespace Willems;
-
   namespace
   {
     const uint32_t VERTEX_BUFFER_BIND_ID = 0;
 
     // Vertex layout for this example
-    const std::vector<MeshLoader::VertexLayout> g_vertexLayout = {
-      MeshLoader::VertexLayout::VERTEX_LAYOUT_POSITION, MeshLoader::VertexLayout::VERTEX_LAYOUT_NORMAL, MeshLoader::VertexLayout::VERTEX_LAYOUT_UV};
+    const std::vector<Willems::MeshLoader::VertexLayout> g_vertexLayout = {Willems::MeshLoader::VertexLayout::VERTEX_LAYOUT_POSITION,
+                                                                           Willems::MeshLoader::VertexLayout::VERTEX_LAYOUT_NORMAL,
+                                                                           Willems::MeshLoader::VertexLayout::VERTEX_LAYOUT_UV};
   }
 
 
@@ -82,13 +81,13 @@ namespace Fsl
 
   void TessellationPNTriangles::BuildCommandBuffers()
   {
-    const auto screenExtent = Convert(GetScreenExtent());
+    const auto screenExtent = TypeConverter::UncheckedTo<VkExtent2D>(GetScreenExtent());
 
     VkCommandBufferBeginInfo cmdBufInfo{};
     cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     cmdBufInfo.pNext = nullptr;
 
-    VkClearValue clearValues[2];
+    std::array<VkClearValue, 2> clearValues{};
     clearValues[0].color = {{0.5f, 0.5f, 0.5f, 0.0f}};
     clearValues[1].depthStencil = {1.0f, 0};
 
@@ -100,8 +99,8 @@ namespace Fsl
     renderPassBeginInfo.renderArea.offset.x = 0;
     renderPassBeginInfo.renderArea.offset.y = 0;
     renderPassBeginInfo.renderArea.extent = screenExtent;
-    renderPassBeginInfo.clearValueCount = 2;
-    renderPassBeginInfo.pClearValues = clearValues;
+    renderPassBeginInfo.clearValueCount = UncheckedNumericCast<uint32_t>(clearValues.size());
+    renderPassBeginInfo.pClearValues = clearValues.data();
 
     VkViewport viewport{};
     viewport.width = m_splitScreen ? static_cast<float>(screenExtent.width) / 2.0f : static_cast<float>(screenExtent.width);
@@ -131,8 +130,8 @@ namespace Fsl
 
           vkCmdBindDescriptorSets(m_drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout.Get(), 0, 1, &m_descriptorSet, 0, nullptr);
 
-          VkDeviceSize offsets[1] = {0};
-          vkCmdBindVertexBuffers(m_drawCmdBuffers[i], VERTEX_BUFFER_BIND_ID, 1, m_meshes.Object.GetVertices().GetBufferPointer(), offsets);
+          VkDeviceSize offsets = 0;
+          vkCmdBindVertexBuffers(m_drawCmdBuffers[i], VERTEX_BUFFER_BIND_ID, 1, m_meshes.Object.GetVertices().GetBufferPointer(), &offsets);
           vkCmdBindIndexBuffer(m_drawCmdBuffers[i], m_meshes.Object.GetIndices().GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
           if (m_splitScreen)
@@ -157,13 +156,13 @@ namespace Fsl
   }
 
 
-  void TessellationPNTriangles::GetOverlayText(VulkanTextOverlay& rTextOverlay)
+  void TessellationPNTriangles::GetOverlayText(Willems::VulkanTextOverlay& rTextOverlay)
   {
     std::stringstream ss;
     ss << std::setprecision(2) << std::fixed << m_uboTC.TessLevel;
-    rTextOverlay.AddText("Tessellation level: " + ss.str() + " (NUMPAD +/- to change)", 5.0f, 85.0f, VulkanTextOverlay::TextAlign::Left);
-    rTextOverlay.AddText("Press 's' to toggle splitscreen", 5.0f, 100.0f, VulkanTextOverlay::TextAlign::Left);
-    rTextOverlay.AddText("Press 'w' to toggle wireframe", 5.0f, 115.0f, VulkanTextOverlay::TextAlign::Left);
+    rTextOverlay.AddText("Tessellation level: " + ss.str() + " (NUMPAD +/- to change)", 5.0f, 85.0f, Willems::VulkanTextOverlay::TextAlign::Left);
+    rTextOverlay.AddText("Press 's' to toggle splitscreen", 5.0f, 100.0f, Willems::VulkanTextOverlay::TextAlign::Left);
+    rTextOverlay.AddText("Press 'w' to toggle wireframe", 5.0f, 115.0f, Willems::VulkanTextOverlay::TextAlign::Left);
   }
 
 
@@ -213,12 +212,12 @@ namespace Fsl
   }
 
 
-  void TessellationPNTriangles::Update(const DemoTime& demoTime)
+  void TessellationPNTriangles::Update(const DemoTime& /*demoTime*/)
   {
   }
 
 
-  void TessellationPNTriangles::Draw(const DemoTime& demoTime)
+  void TessellationPNTriangles::Draw(const DemoTime& /*demoTime*/)
   {
     if (!TryPrepareFrame())
     {
@@ -238,12 +237,12 @@ namespace Fsl
   {
     if (m_deviceFeatures.textureCompressionBC != VK_FALSE)
     {
-      FSLLOG("Using BC compression");
+      FSLLOG3_INFO("Using BC compression");
       m_textures.ColorMap = m_textureLoader->LoadTexture("Models/Deer/deer_bc3.ktx");
     }
     else if (m_deviceFeatures.textureCompressionETC2 != VK_FALSE)
     {
-      FSLLOG("Using ETC2 compression");
+      FSLLOG3_INFO("Using ETC2 compression");
       m_textures.ColorMap = m_textureLoader->LoadTexture("Models/Deer/deer_etc2.ktx");
     }
     else
@@ -265,7 +264,7 @@ namespace Fsl
     m_vertices.BindingDescriptions.clear();
     m_vertices.BindingDescriptions.resize(1);
     m_vertices.BindingDescriptions[0].binding = VERTEX_BUFFER_BIND_ID;
-    m_vertices.BindingDescriptions[0].stride = MeshLoader::VertexSize(g_vertexLayout);
+    m_vertices.BindingDescriptions[0].stride = Willems::MeshLoader::VertexSize(g_vertexLayout);
     m_vertices.BindingDescriptions[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
     // Attribute descriptions
@@ -293,9 +292,9 @@ namespace Fsl
 
     m_vertices.InputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     m_vertices.InputState.pNext = nullptr;
-    m_vertices.InputState.vertexBindingDescriptionCount = static_cast<uint32_t>(m_vertices.BindingDescriptions.size());
+    m_vertices.InputState.vertexBindingDescriptionCount = UncheckedNumericCast<uint32_t>(m_vertices.BindingDescriptions.size());
     m_vertices.InputState.pVertexBindingDescriptions = m_vertices.BindingDescriptions.data();
-    m_vertices.InputState.vertexAttributeDescriptionCount = static_cast<uint32_t>(m_vertices.AttributeDescriptions.size());
+    m_vertices.InputState.vertexAttributeDescriptionCount = UncheckedNumericCast<uint32_t>(m_vertices.AttributeDescriptions.size());
     m_vertices.InputState.pVertexAttributeDescriptions = m_vertices.AttributeDescriptions.data();
   }
 
@@ -370,7 +369,7 @@ namespace Fsl
     VkDescriptorSetLayoutCreateInfo descriptorLayout{};
     descriptorLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     descriptorLayout.pNext = nullptr;
-    descriptorLayout.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
+    descriptorLayout.bindingCount = UncheckedNumericCast<uint32_t>(setLayoutBindings.size());
     descriptorLayout.pBindings = setLayoutBindings.data();
 
     m_descriptorSetLayout.Reset(m_device.Get(), descriptorLayout);
@@ -436,7 +435,7 @@ namespace Fsl
     VkPipelineDynamicStateCreateInfo dynamicState{};
     dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     dynamicState.flags = 0;
-    dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStateEnables.size());
+    dynamicState.dynamicStateCount = UncheckedNumericCast<uint32_t>(dynamicStateEnables.size());
     dynamicState.pDynamicStates = dynamicStateEnables.data();
 
     VkPipelineTessellationStateCreateInfo tessellationState{};
@@ -467,7 +466,7 @@ namespace Fsl
     pipelineCreateInfo.pDepthStencilState = &depthStencilState;
     pipelineCreateInfo.pDynamicState = &dynamicState;
     pipelineCreateInfo.pTessellationState = &tessellationState;
-    pipelineCreateInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
+    pipelineCreateInfo.stageCount = UncheckedNumericCast<uint32_t>(shaderStages.size());
     pipelineCreateInfo.pStages = shaderStages.data();
     pipelineCreateInfo.renderPass = m_renderPass.Get();
 
@@ -506,7 +505,7 @@ namespace Fsl
     descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     descriptorPoolInfo.pNext = nullptr;
     descriptorPoolInfo.maxSets = 1;
-    descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    descriptorPoolInfo.poolSizeCount = UncheckedNumericCast<uint32_t>(poolSizes.size());
     descriptorPoolInfo.pPoolSizes = poolSizes.data();
 
     m_descriptorPool.Reset(m_device.Get(), descriptorPoolInfo);
@@ -555,7 +554,7 @@ namespace Fsl
     writeDescriptorSets[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     writeDescriptorSets[2].pImageInfo = &texDescriptor;
 
-    vkUpdateDescriptorSets(m_device.Get(), static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+    vkUpdateDescriptorSets(m_device.Get(), UncheckedNumericCast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
   }
 
 

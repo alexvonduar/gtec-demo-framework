@@ -30,16 +30,18 @@
  ****************************************************************************************************************************************************/
 
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/Math/MathHelper.hpp>
 #include <FslBase/Math/Rectangle.hpp>
 #include <FslBase/Math/Vector2.hpp>
+#include <FslBase/System/Threading/Thread.hpp>
 #include <FslGraphics/Bitmap/RawBitmapEx.hpp>
 #include <FslGraphics/Bitmap/RawBitmapUtil.hpp>
 #include "Logo.hpp"
 #include "VGStressTest.hpp"
 #include "VGStressTestOptionParser.hpp"
 #include <VG/openvg.h>
+#include <array>
 #include <algorithm>
 #include <cmath>
 #include <ctime>
@@ -88,18 +90,18 @@ namespace Fsl
                               const Point2& dstCenter, const bool bAddEndVertex = false)
     {
       rDst.resize((numVerticesPerCircle * numRevolutions) + (bAddEndVertex ? 1 : 0));
-      const float angleAdd = (2 * MathHelper::PI) / numVerticesPerCircle;
+      const float angleAdd = (2.0f * MathHelper::PI) / static_cast<float>(numVerticesPerCircle);
       float modOffset = grow / 2;
       int dstIdx = 0;
 
-      const float growStep = grow / numVerticesPerCircle;
+      const float growStep = grow / static_cast<float>(numVerticesPerCircle);
 
       for (int circleIdx = 0; circleIdx < numRevolutions; ++circleIdx)
       {
         float angle = 0.0f;
         for (int i = 0; i < numVerticesPerCircle; ++i)
         {
-          float mod = modOffset + (i * growStep);
+          float mod = modOffset + (static_cast<float>(i) * growStep);
           rDst[dstIdx] = Vector2(dstCenter.X + (std::sin(angle) * mod), dstCenter.Y + (std::cos(angle) * mod));
           ++dstIdx;
           angle += angleAdd;
@@ -110,7 +112,7 @@ namespace Fsl
       {
         int i = 0;
         float angle = 0.0f;
-        float mod = modOffset + (i * growStep);
+        float mod = modOffset + (static_cast<float>(i) * growStep);
         rDst[dstIdx] = Vector2(dstCenter.X + (std::sin(angle) * mod), dstCenter.Y + (std::cos(angle) * mod));
       }
     }
@@ -151,7 +153,9 @@ namespace Fsl
       std::vector<VGubyte> segments(vertexLength + 1);
       segments[0] = VG_MOVE_TO_ABS;
       for (std::size_t i = 1; i <= vertexLength; ++i)
+      {
         segments[i] = VG_LINE_TO_ABS;
+      }
 
       rDst.Reset(srcVertices, static_cast<uint32_t>(vertexOffset), static_cast<uint32_t>(vertexLength + 1), segments);
     }
@@ -199,7 +203,7 @@ namespace Fsl
 
       // Extract line path segments for the spiral
       {
-        const std::size_t numSegments = static_cast<std::size_t>(numSegmentsPerRevolution * numRevolutions);
+        const auto numSegments = static_cast<std::size_t>(numSegmentsPerRevolution) * static_cast<std::size_t>(numRevolutions);
         const auto num = spiralVertices.size() / numSegments;
         rPaths.resize(numSegments);
         for (std::size_t i = 0; i < numSegments; ++i)
@@ -247,7 +251,9 @@ namespace Fsl
       std::vector<VGubyte> segments(pathLength);
       segments[0] = VG_MOVE_TO_ABS;
       for (std::size_t i = 1; i < pathLength; ++i)
+      {
         segments[i] = VG_QUAD_TO_ABS;
+      }
 
       rPath.Reset(srcVertices, segments);
     }
@@ -265,9 +271,9 @@ namespace Fsl
     void DrawSegmentedSpiral(const std::vector<VGPathBufferPtr>& paths, const float strokeLineWidth, const VGPaint paintStroke,
                              const VGPaint paintFill, const float* const pColor)
     {
-      float colorFill[] = {1.0f, 1.0f, 0.0f, 1.0f};
+      constexpr std::array<float, 4> colorFill = {1.0f, 1.0f, 0.0f, 1.0f};
 
-      vgSetParameterfv(paintFill, VG_PAINT_COLOR, 4, &colorFill[0]);
+      vgSetParameterfv(paintFill, VG_PAINT_COLOR, 4, colorFill.data());
       vgSetf(VG_STROKE_LINE_WIDTH, strokeLineWidth);
 
       vgSeti(VG_STROKE_CAP_STYLE, VG_CAP_ROUND);
@@ -283,8 +289,8 @@ namespace Fsl
     void DrawStrokedQuadricSpiral(const OpenVG::VGPathBuffer& VGPathBuffer, const float strokeLineWidth, const VGPaint paint, float* pColor,
                                   const int numLayers, const uint16_t angle)
     {
-      VGfloat d[] = {500, 15};
-      vgSetfv(VG_STROKE_DASH_PATTERN, 2, d);
+      std::array<VGfloat, 2> d = {500.0f, 15.0f};
+      vgSetfv(VG_STROKE_DASH_PATTERN, 2, d.data());
       vgSeti(VG_STROKE_CAP_STYLE, VG_CAP_ROUND);
       vgSeti(VG_STROKE_JOIN_STYLE, VG_JOIN_ROUND);
 
@@ -295,8 +301,8 @@ namespace Fsl
       for (int i = 0; i < numLayers; ++i)
       {
         DrawPath(VGPathBuffer, paint, pColor);
-        vgTranslate((std::sin((float)angle * MathHelper::TO_RADS) * i * 0.005f) + (i * 0.005f),
-                    (std::cos((float)angle * MathHelper::TO_RADS) * i * 0.005f) + (i * 0.005f));
+        vgTranslate((std::sin(float(angle) * MathHelper::TO_RADS) * float(i) * 0.005f) + (float(i) * 0.005f),
+                    (std::cos(float(angle) * MathHelper::TO_RADS) * float(i) * 0.005f) + (float(i) * 0.005f));
       }
       vgLoadIdentity();
 
@@ -307,13 +313,11 @@ namespace Fsl
 
   VGStressTest::VGStressTest(const DemoAppConfig& config)
     : DemoAppVG(config)
-    , m_config()
     , m_stroke(VG_INVALID_HANDLE)
     , m_stroke2(VG_INVALID_HANDLE)
     , m_fill(VG_INVALID_HANDLE)
     , m_imgPaint(VG_INVALID_HANDLE)
     , m_imgPattern(VG_INVALID_HANDLE)
-    , m_paths()
     , m_angle(0)
     //, m_VGS_test_pass(false)
     //, m_VGS_framerate_avg(0)
@@ -325,7 +329,7 @@ namespace Fsl
     m_toggleMinMax = m_config.GetToggleMinMax();
 
 
-    const Point2 screenResolution = GetScreenResolution();
+    const PxSize2D windowSizePx = GetWindowSizePx();
 
     m_stroke = vgCreatePaint();
     vgSetPaint(m_stroke, VG_STROKE_PATH);
@@ -344,8 +348,8 @@ namespace Fsl
       const int w = logo.Width();
       const int h = logo.Height();
 
-      const uint8_t* pContent = static_cast<const uint8_t*>(logo.Content());
-      const std::size_t imgSize = (std::size_t)logo.GetByteSize();
+      const auto* pContent = static_cast<const uint8_t*>(logo.Content());
+      const auto imgSize = static_cast<std::size_t>(logo.GetByteSize());
       std::vector<uint8_t> img(imgSize);
       std::copy(pContent, pContent + imgSize, img.begin());
 
@@ -370,15 +374,15 @@ namespace Fsl
       Rectangle dstArea;
 
       int dim = 0;
-      if (screenResolution.X >= screenResolution.Y)
+      if (windowSizePx.Width() >= windowSizePx.Height())
       {
-        dim = screenResolution.X;
-        dstArea = Rectangle(0, (screenResolution.Y - screenResolution.X) / 2, dim, dim);
+        dim = windowSizePx.Width();
+        dstArea = Rectangle(0, (windowSizePx.Height() - windowSizePx.Width()) / 2, dim, dim);
       }
       else
       {
-        dim = screenResolution.Y / 2;
-        dstArea = Rectangle((screenResolution.X - screenResolution.Y) / 2, 0, dim, dim);
+        dim = windowSizePx.Height() / 2;
+        dstArea = Rectangle((windowSizePx.Width() - windowSizePx.Height()) / 2, 0, dim, dim);
       }
 
       {
@@ -403,7 +407,7 @@ namespace Fsl
       case 0:
       case 1:
         GenerateQuadricSpiral(m_test, m_config.GetQuadricSpiralRevolutionCount(),
-                              m_config.GetQuadricSpiralRevolutionChange(screenResolution.X, screenResolution.Y), dstArea);
+                              m_config.GetQuadricSpiralRevolutionChange(windowSizePx.Width(), windowSizePx.Height()), dstArea);
         break;
       case 2:
         GenerateCubicSegmentedSpiral(m_paths, m_config.GetSegmentedSpiralRevolutionCount(),
@@ -459,7 +463,9 @@ namespace Fsl
     {
       ++m_angle;
       if (m_angle == 360)
+      {
         m_angle = 0;
+      }
     }
   }
 
@@ -467,41 +473,40 @@ namespace Fsl
   void VGStressTest::Draw(const DemoTime& demoTime)
   {
     bool bypassRender = false;
-    if (m_toggleMinMax == true)
+    if (m_toggleMinMax)
     {
       std::time_t result = std::time(nullptr);
       if ((result % 10) < 5)
       {
         bypassRender = true;
-        FSLLOG_WARNING("Thread sleep not implemented yet");
-        // Thread::Sleep(16);
+        Thread::SleepMilliseconds(16);
       }
     }
-    if (bypassRender == false)
+    if (!bypassRender)
     {
-      const Point2 screenResolution = GetScreenResolution();
+      const PxSize2D windowSizePx = GetWindowSizePx();
 
-      float col[] = {0.0f, 0.0f, 0.0f, 0.5f};
+      std::array<float, 4> col = {0.0f, 0.0f, 0.0f, 0.5f};
 
-      float colorStroke1[] = {1.0f, 1.0f, 1.0f, 0.5f};
-      float colorStroke2[] = {1.0f, 1.0f, 1.0f, 0.1f};
+      std::array<float, 4> colorStroke1 = {1.0f, 1.0f, 1.0f, 0.5f};
+      std::array<float, 4> colorStroke2 = {1.0f, 1.0f, 1.0f, 0.1f};
 
-      vgSetfv(VG_CLEAR_COLOR, 4, col);
-      vgClear(0, 0, screenResolution.X, screenResolution.Y);
+      vgSetfv(VG_CLEAR_COLOR, 4, col.data());
+      vgClear(0, 0, windowSizePx.Width(), windowSizePx.Height());
 
       switch (m_config.GetType())
       {
       case 0:
-        DrawStrokedQuadricSpiral(m_test, m_config.GetQuadricSpiralStrokeLineWidth(), m_stroke2, colorStroke2, m_config.GetQuadricSpiralLayers(),
-                                 m_angle);
+        DrawStrokedQuadricSpiral(m_test, m_config.GetQuadricSpiralStrokeLineWidth(), m_stroke2, colorStroke2.data(),
+                                 m_config.GetQuadricSpiralLayers(), m_angle);
         break;
       case 1:
-        DrawStrokedQuadricSpiral(m_test, m_config.GetQuadricSpiralStrokeLineWidth(), m_imgPaint, colorStroke2, m_config.GetQuadricSpiralLayers(),
-                                 m_angle);
+        DrawStrokedQuadricSpiral(m_test, m_config.GetQuadricSpiralStrokeLineWidth(), m_imgPaint, colorStroke2.data(),
+                                 m_config.GetQuadricSpiralLayers(), m_angle);
         break;
       case 2:
       case 3:
-        DrawSegmentedSpiral(m_paths, m_config.GetSegmentedSpiralStrokeLineWidth(), m_stroke, m_fill, colorStroke1);
+        DrawSegmentedSpiral(m_paths, m_config.GetSegmentedSpiralStrokeLineWidth(), m_stroke, m_fill, colorStroke1.data());
         break;
       }
       vgFinish();    // execute all in pipe before presentation - workaround for eglSwapBuffer not flushing pipe

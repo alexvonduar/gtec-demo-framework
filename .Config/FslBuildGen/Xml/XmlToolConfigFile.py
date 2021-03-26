@@ -186,9 +186,10 @@ class XmlToolConfigFile(XmlBase):
                                                   newProjectTemplatesRootDirectories1: List[XmlConfigFileAddNewProjectTemplatesRootDirectory],
                                                   newProjectTemplatesRootDirectories2: List[XmlConfigFileAddNewProjectTemplatesRootDirectory]) -> List[XmlConfigFileAddNewProjectTemplatesRootDirectory]:
         uniqueDict = {} # type: Dict[str, XmlConfigFileAddNewProjectTemplatesRootDirectory]
-        result = [] # type: List[XmlConfigFileAddNewProjectTemplatesRootDirectory]
-        self.__AddNewProjectTemplatesRootDirectories(result, uniqueDict, newProjectTemplatesRootDirectories1) # type: List[XmlConfigFileAddNewProjectTemplatesRootDirectory]
-        self.__AddNewProjectTemplatesRootDirectories(result, uniqueDict, newProjectTemplatesRootDirectories2) # type: List[XmlConfigFileAddNewProjectTemplatesRootDirectory]
+        result = []     # type: List[XmlConfigFileAddNewProjectTemplatesRootDirectory]
+
+        self.__AddNewProjectTemplatesRootDirectories(result, uniqueDict, newProjectTemplatesRootDirectories1)
+        self.__AddNewProjectTemplatesRootDirectories(result, uniqueDict, newProjectTemplatesRootDirectories2)
         return result
 
 
@@ -220,7 +221,7 @@ class XmlToolConfigFile(XmlBase):
         for entry in xmlPackageConfigurations:
             if entry.Name in packageConfigurationDict:
                 firstEntry = packageConfigurationDict[entry.Name]
-                raise XmlException2(entry.XMLElement, "Duplicated package configuration name '{0}' found in '{1}' and '{2}'".format(entry.Name, entry.SourceFile, firstEntry.SourceFile))
+                raise XmlException2("Duplicated package configuration name '{0}' found in '{1}' and '{2}'".format(entry.Name, entry.SourceFile, firstEntry.SourceFile))
             packageConfigurationDict[entry.Name] = entry
 
         if 'default' not in packageConfigurationDict:
@@ -235,14 +236,14 @@ class XmlToolConfigFile(XmlBase):
     def __LoadTemplateFolder(self, xmlElement: ET.Element) -> XmlConfigFileTemplateFolder:
         foundElement = xmlElement.find("TemplateFolder")
         if foundElement is None:
-            raise XmlException2(xmlElement, "Could not locate the TemplateFolder element")
+            raise XmlException2("Could not locate the TemplateFolder element")
         return XmlConfigFileTemplateFolder(self.Log, foundElement)
 
 
     def __LoadGenFileName(self, xmlElement: ET.Element) -> XmlConfigFileGenFile:
         foundElement = xmlElement.find("GenFile")
         if foundElement is None:
-            raise XmlException2(xmlElement, "Could not locate the GenFile element")
+            raise XmlException2("Could not locate the GenFile element")
         return XmlConfigFileGenFile(self.Log, foundElement)
 
 
@@ -261,4 +262,3 @@ class XmlToolConfigFile(XmlBase):
         elif len(foundElements) == 1:
             return XmlConfigContentBuilderConfiguration(self.Log, foundElements[0])
         return FakeXmlConfigContentBuilderConfiguration(self.Log)
-

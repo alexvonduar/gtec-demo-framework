@@ -37,8 +37,11 @@
 #include <FslNativeWindow/Base/NativeWindowSetup.hpp>
 #include <FslNativeWindow/Base/NativeWindowSystemSetup.hpp>
 #include <FslBase/Exceptions.hpp>
-#include <FslBase/Log/Log.hpp>
-#include <FslBase/Log/Math/LogRectangle.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
+#include <FslBase/Log/Math/Pixel/FmtPxPoint2.hpp>
+#include <FslBase/Log/Math/FmtPoint2.hpp>
+#include <FslBase/Log/Math/FmtRectangle.hpp>
+#include <FslBase/Math/Pixel/PxPoint2.hpp>
 #include <FslBase/Math/Point2.hpp>
 #include <FslBase/Math/Vector2.hpp>
 // #include <X11/extensions/XInput2.h>
@@ -60,7 +63,7 @@ namespace Fsl
     const int MAGIC_DEFAULT_DPI = 96;
 
     std::weak_ptr<INativeWindowEventQueue> g_eventQueue;
-    int WaitForMap(Display* display, XEvent* event, XPointer arg)    // NOLINT(readability-non-const-parameter)
+    int WaitForMap(Display* /*display*/, XEvent* event, XPointer arg)    // NOLINT(readability-non-const-parameter)
     {
       return static_cast<int>(event->type == MapNotify && event->xmap.window == *reinterpret_cast<Window*>(arg));
     }
@@ -257,9 +260,9 @@ namespace Fsl
       bool found = false;
       XRRScreenConfiguration* pScreenInfo = XRRGetScreenInfo(platformDisplay, platformWindow);
       {
-        Rotation currentRotation;
+        Rotation currentRotation{};
         const auto currentSize = XRRConfigCurrentConfiguration(pScreenInfo, &currentRotation);
-        int sizeCount;
+        int sizeCount = 0;
         XRRScreenSize* pSizes = XRRConfigSizes(pScreenInfo, &sizeCount);
         if (currentSize <= sizeCount)
         {
@@ -295,22 +298,22 @@ namespace Fsl
       {
         if (screenSize.width > 0 && screenSize.height > 0 && screenSize.mwidth > 0 && screenSize.mheight > 0)
         {
-          FSLLOG2(LogType::Verbose4, "PlatformNativeWindowX11| UpdateDPI: ");
-          FSLLOG2(LogType::Verbose4, "- screenSize.width: " << screenSize.width);
-          FSLLOG2(LogType::Verbose4, "- screenSize.height: " << screenSize.height);
-          FSLLOG2(LogType::Verbose4, "- screenSize.mwidth: " << screenSize.mwidth);
-          FSLLOG2(LogType::Verbose4, "- screenSize.mheight: " << screenSize.mheight);
+          FSLLOG3_VERBOSE4("PlatformNativeWindowX11| UpdateDPI: ");
+          FSLLOG3_VERBOSE4("- screenSize.width: {}", screenSize.width);
+          FSLLOG3_VERBOSE4("- screenSize.height: {}", screenSize.height);
+          FSLLOG3_VERBOSE4("- screenSize.mwidth: {}", screenSize.mwidth);
+          FSLLOG3_VERBOSE4("- screenSize.mheight: {}", screenSize.mheight);
           rScreenDPI = Point2(CalcDPI(screenSize.width, screenSize.mwidth), CalcDPI(screenSize.height, screenSize.mheight));
-          FSLLOG2(LogType::Verbose4, "- DPI: " << rScreenDPI.X << ", " << rScreenDPI.Y);
+          FSLLOG3_VERBOSE4("- DPI: {}, {}", rScreenDPI.X, rScreenDPI.Y);
         }
         else
         {
-          FSLLOG_WARNING("Failed to acquire proper DPI information, using defaults");
+          FSLLOG3_WARNING("Failed to acquire proper DPI information, using defaults");
         }
       }
       else
       {
-        FSLLOG_WARNING("Failed to acquire real screen DPI using defaults");
+        FSLLOG3_WARNING("Failed to acquire real screen DPI using defaults");
       }
     }
 
@@ -356,7 +359,7 @@ namespace Fsl
 
   PlatformNativeWindowSystemX11::PlatformNativeWindowSystemX11(const NativeWindowSystemSetup& setup,
                                                                const PlatformNativeWindowAllocationFunction& allocateWindowFunction,
-                                                               const PlatformNativeWindowSystemParams& systemParams)
+                                                               const PlatformNativeWindowSystemParams& /*systemParams*/)
     : PlatformNativeWindowSystem(setup, nullptr)
     , m_visualId(0)
     , m_allocationFunction(allocateWindowFunction ? allocateWindowFunction : AllocateWindow)
@@ -364,9 +367,9 @@ namespace Fsl
     , m_rrEventBase(0)
     , m_rrErrorBase(0)
   {
-    FSLLOG_WARNING_IF(setup.GetConfig().GetDisplayId() != 0,
-                      "X11 only supports the main display. Using DisplayId 0 instead of " << setup.GetConfig().GetDisplayId());
-    FSLLOG2(LogType::Verbose3, "PlatformNativeWindowSystemX11| XOpenDisplay");
+    FSLLOG3_WARNING_IF(setup.GetConfig().GetDisplayId() != 0, "X11 only supports the main display. Using DisplayId 0 instead of {}",
+                       setup.GetConfig().GetDisplayId());
+    FSLLOG3_VERBOSE3("PlatformNativeWindowSystemX11| XOpenDisplay");
     m_platformDisplay = XOpenDisplay(nullptr);
     if (m_platformDisplay == nullptr)
     {
@@ -374,29 +377,30 @@ namespace Fsl
     }
 
     // Lookup the default visual
-    auto defaultVisual = DefaultVisual(m_platformDisplay, 0);
+    auto* defaultVisual = DefaultVisual(m_platformDisplay, 0);
     m_visualId = XVisualIDFromVisual(defaultVisual);
 
     // Get some extension info
     m_extensionRREnabled = (XRRQueryExtension(m_platformDisplay, &m_rrEventBase, &m_rrErrorBase) != 0);
-    FSLLOG2(LogType::Verbose3, "PlatformNativeWindowSystemX11| Extension RR: " << m_extensionRREnabled);
+    FSLLOG3_VERBOSE3("PlatformNativeWindowSystemX11| Extension RR: {}", m_extensionRREnabled);
     if (m_extensionRREnabled)
     {
-      int major, minor;
+      int major = 0;
+      int minor = 0;
       if (XRRQueryVersion(m_platformDisplay, &major, &minor) != 0)
       {
-        FSLLOG2(LogType::Verbose3, "PlatformNativeWindowSystemX11| RR version: " << major << "." << minor);
+        FSLLOG3_VERBOSE3("PlatformNativeWindowSystemX11| RR version: {}.{}", major, minor);
         if (major == 1 && minor <= 1)
         {
-          FSLLOG_WARNING("PlatformNativeWindowSystemX11: Due to the XRR version some features have been disabled.");
+          FSLLOG3_WARNING("PlatformNativeWindowSystemX11: Due to the XRR version some features have been disabled.");
           m_extensionRREnabled = false;
         }
       }
     }
 
     // auto xinput2Info = DetectXInput2(m_platformDisplay);
-    // FSLLOG2_IF(!xinput2Info.Available, LogType::Verbose3, "PlatformNativeWindowSystemX11| xinput2 unavailable");
-    // FSLLOG2_IF(xinput2Info.Available, LogType::Verbose3,
+    // FSLLOG3_VERBOSE3(_IF(!xinput2Info.Available, "PlatformNativeWindowSystemX11| xinput2 unavailable");
+    // FSLLOG3_VERBOSE3(_IF(xinput2Info.Available,
     //            "PlatformNativeWindowSystemX11| xinput2 version: " << xinput2Info.MajorVersion << "." << xinput2Info.MinorVersion);
 
     auto eventQueue = setup.GetEventQueue().lock();
@@ -406,15 +410,15 @@ namespace Fsl
       eventQueue->PostEvent(event);
     }
 
-    FSLLOG2(LogType::Verbose3, "PlatformNativeWindowSystemX11| XOpenDisplay: Completed");
+    FSLLOG3_VERBOSE3("PlatformNativeWindowSystemX11| XOpenDisplay: Completed");
   }
 
 
   PlatformNativeWindowSystemX11::~PlatformNativeWindowSystemX11()
   {
-    FSLLOG2(LogType::Verbose3, "PlatformNativeWindowSystemX11| XCloseDisplay begin");
+    FSLLOG3_VERBOSE3("PlatformNativeWindowSystemX11| XCloseDisplay begin");
     XCloseDisplay(m_platformDisplay);
-    FSLLOG2(LogType::Verbose3, "PlatformNativeWindowSystemX11| XCloseDisplay done");
+    FSLLOG3_VERBOSE3("PlatformNativeWindowSystemX11| XCloseDisplay done");
   }
 
 
@@ -422,9 +426,9 @@ namespace Fsl
     PlatformNativeWindowSystemX11::CreateNativeWindow(const NativeWindowSetup& nativeWindowSetup,
                                                       const PlatformNativeWindowAllocationParams* const pPlatformCustomWindowAllocationParams)
   {
-    FSLLOG2(LogType::Verbose3, "PlatformNativeWindowSystemX11| CreateNativeWindow")
-    const auto window = m_allocationFunction(nativeWindowSetup, PlatformNativeWindowParams(m_platformDisplay, m_visualId, m_extensionRREnabled),
-                                             pPlatformCustomWindowAllocationParams);
+    FSLLOG3_VERBOSE3("PlatformNativeWindowSystemX11| CreateNativeWindow")
+    auto window = m_allocationFunction(nativeWindowSetup, PlatformNativeWindowParams(m_platformDisplay, m_visualId, m_extensionRREnabled),
+                                       pPlatformCustomWindowAllocationParams);
 
     auto ptr = std::dynamic_pointer_cast<PlatformNativeWindowX11>(window);
     if (!ptr)
@@ -437,13 +441,13 @@ namespace Fsl
   }
 
 
-  bool PlatformNativeWindowSystemX11::ProcessMessages(const NativeWindowProcessMessagesArgs& args)
+  bool PlatformNativeWindowSystemX11::ProcessMessages(const NativeWindowProcessMessagesArgs& /*args*/)
   {
     const std::shared_ptr<PlatformNativeWindowX11> window = m_window.lock();
-    VirtualKey::Enum keyCode;
+    VirtualKey::Enum keyCode = VirtualKey::Undefined;
     std::shared_ptr<INativeWindowEventQueue> eventQueue = g_eventQueue.lock();
-    Point2 mousePosition;
-    VirtualMouseButton::Enum mouseButton;
+    PxPoint2 mousePosition;
+    VirtualMouseButton::Enum mouseButton = VirtualMouseButton::Undefined;
     bool bQuit = false;
     XEvent event;
     static int wheelEvents = 0;
@@ -457,7 +461,7 @@ namespace Fsl
       case ConfigureNotify:
         if (window && event.xconfigure.window == window->GetPlatformWindow())
         {
-          // FSLLOG("Window moved or resized");
+          // FSLLOG3_INFO("Window moved or resized");
           window->OnConfigureNotify(event.xconfigure, eventQueue);
         }
         break;
@@ -560,7 +564,7 @@ namespace Fsl
 
   void PlatformNativeWindowSystemX11::SetCreatedWindow(const std::weak_ptr<PlatformNativeWindowX11>& window)
   {
-    FSLLOG2(LogType::Verbose3, "PlatformNativeWindowSystemX11| SetCreatedWindow");
+    FSLLOG3_VERBOSE3("PlatformNativeWindowSystemX11| SetCreatedWindow");
     auto currentWindow = m_window.lock();
     if (currentWindow)
     {
@@ -573,20 +577,23 @@ namespace Fsl
 
   PlatformNativeWindowX11::PlatformNativeWindowX11(const NativeWindowSetup& nativeWindowSetup, const PlatformNativeWindowParams& platformWindowParams,
                                                    const PlatformNativeWindowAllocationParams* const pPlatformCustomWindowAllocationParams)
-    : PlatformNativeWindow(nativeWindowSetup, platformWindowParams, pPlatformCustomWindowAllocationParams)
+    : PlatformNativeWindow(nativeWindowSetup, platformWindowParams, pPlatformCustomWindowAllocationParams, NativeWindowCapabilityFlags::GetDpi)
     , m_pVisual(nullptr)
     , m_cachedScreenDPI(MAGIC_DEFAULT_DPI, MAGIC_DEFAULT_DPI)
   {
-    FSLLOG2(LogType::Verbose3, "PlatformNativeWindowX11| Constructing");
+    FSLLOG3_VERBOSE3("PlatformNativeWindowX11| Constructing");
 
     const NativeWindowConfig nativeWindowConfig = nativeWindowSetup.GetConfig();
-    int windowWidth, windowHeight, windowX, windowY;
+    int windowWidth = 0;
+    int windowHeight = 0;
+    int windowX = 0;
+    int windowY = 0;
     g_eventQueue = nativeWindowSetup.GetEventQueue();
 
     XVisualInfo visualInfo{};
     visualInfo.visualid = platformWindowParams.VisualId;
 
-    int visualItemCount;
+    int visualItemCount = 0;
     m_pVisual = XGetVisualInfo(m_platformDisplay, VisualIDMask, &visualInfo, &visualItemCount);
     if (m_pVisual == nullptr)
     {
@@ -612,8 +619,8 @@ namespace Fsl
       windowX = 0;
       windowY = 0;
 
-      FSLLOG2(LogType::Verbose2, "PlatformNativeWindowX11| Creating fullscreen window: {X = " << windowX << " Y = " << windowY << " Width = "
-                                                                                              << windowWidth << " Height = " << windowHeight << "}");
+      FSLLOG3_VERBOSE2("PlatformNativeWindowX11| Creating fullscreen window: (X={} Y={} Width={} Height={})", windowX, windowY, windowWidth,
+                       windowHeight);
     }
     else
     {
@@ -623,7 +630,7 @@ namespace Fsl
       windowX = windowRectangle.X();
       windowY = windowRectangle.Y();
 
-      FSLLOG2(LogType::Verbose2, "PlatformNativeWindowX11| Creating window: " << windowRectangle);
+      FSLLOG3_VERBOSE2("PlatformNativeWindowX11| Creating window: {}", windowRectangle);
     }
 
     m_colormap = XCreateColormap(m_platformDisplay, rootwindow, m_pVisual->visual, AllocNone);
@@ -664,7 +671,7 @@ namespace Fsl
       XRRSelectInput(m_platformDisplay, m_platformWindow, RRScreenChangeNotifyMask);
     }
 
-    m_cachedWindowSize = Point2(windowWidth, windowHeight);
+    m_cachedWindowSize = PxPoint2(windowWidth, windowHeight);
     UpdateDPIIfPossible(m_platformDisplay, m_platformWindow, m_cachedScreenDPI);
 
     {    // Post the activation message to let the framework know we are ready
@@ -674,7 +681,7 @@ namespace Fsl
         eventQueue->PostEvent(NativeWindowEventHelper::EncodeWindowActivationEvent(true));
       }
     }
-    FSLLOG2(LogType::Verbose3, "PlatformNativeWindowX11| Constructed");
+    FSLLOG3_VERBOSE3("PlatformNativeWindowX11| Constructed");
   }
 
 
@@ -690,30 +697,16 @@ namespace Fsl
     }
   }
 
-
-  bool PlatformNativeWindowX11::TryGetDPI(Vector2& rDPI) const
-  {
-    rDPI = Vector2(m_cachedScreenDPI.X, m_cachedScreenDPI.Y);
-    return true;
-  }
-
-  bool PlatformNativeWindowX11::TryGetSize(Point2& rSize) const
-  {
-    rSize = m_cachedWindowSize;
-    return true;
-  }
-
-
   void PlatformNativeWindowX11::OnConfigureNotify(const XConfigureEvent& event, const std::shared_ptr<INativeWindowEventQueue>& eventQueue)
   {
-    Point2 newSize(event.width, event.height);
+    PxPoint2 newSize(event.width, event.height);
     if (newSize == m_cachedWindowSize)
     {
       return;
     }
 
     m_cachedWindowSize = newSize;
-    FSLLOG2(LogType::Verbose2, "PlatformNativeWindowX11| Updating cached size to " << m_cachedWindowSize.X << ", " << m_cachedWindowSize.Y);
+    FSLLOG3_VERBOSE2("PlatformNativeWindowX11| Updating cached size to {}", m_cachedWindowSize);
 
     if (eventQueue)
     {
@@ -734,11 +727,24 @@ namespace Fsl
     }
 
     m_cachedScreenDPI = newDPI;
-    FSLLOG2(LogType::Verbose2, "PlatformNativeWindowX11| Cached DPI updated: " << m_cachedScreenDPI.X << ", " << m_cachedScreenDPI.Y);
+    FSLLOG3_VERBOSE2("PlatformNativeWindowX11| Cached DPI updated: {}", m_cachedScreenDPI);
     if (eventQueue)
     {
-      eventQueue->PostEvent(NativeWindowEventHelper::EncodeWindowDPIChanged(newDPI));
+      eventQueue->PostEvent(NativeWindowEventHelper::EncodeWindowConfigChanged());
     }
   }
+
+  bool PlatformNativeWindowX11::TryGetNativeSize(PxPoint2& rSize) const
+  {
+    rSize = m_cachedWindowSize;
+    return true;
+  }
+
+  bool PlatformNativeWindowX11::TryGetNativeDpi(Vector2& rDPI) const
+  {
+    rDPI = Vector2(m_cachedScreenDPI.X, m_cachedScreenDPI.Y);
+    return true;
+  }
+
 }    // namespace Fsl
 #endif

@@ -31,7 +31,6 @@
  *
  ****************************************************************************************************************************************************/
 
-#include <FslBase/Noncopyable.hpp>
 #include <FslSimpleUI/Base/Event/EventDescription.hpp>
 #include <FslSimpleUI/Base/Event/EventTypeId.hpp>
 #include <memory>
@@ -42,7 +41,7 @@ namespace Fsl
   {
     class IWindowId;
 
-    class WindowEvent : private Noncopyable
+    class WindowEvent
     {
       const EventTypeId m_eventTypeId;
       const EventDescription m_eventDescription;
@@ -53,6 +52,9 @@ namespace Fsl
       bool m_isInitialized;
 
     public:
+      WindowEvent(const WindowEvent&) = delete;
+      WindowEvent& operator=(const WindowEvent&) = delete;
+
       virtual ~WindowEvent();
 
       bool IsOriginalSource(const IWindowId* const pWindowId) const;
@@ -87,7 +89,7 @@ namespace Fsl
       void SYS_SetOriginalSource(const std::shared_ptr<IWindowId>& value);
 
     protected:
-      WindowEvent(const EventTypeId typeId, const EventDescription& eventDescription);
+      WindowEvent(const EventTypeId typeId, EventDescription eventDescription);
       void SYS_DoConstruct();
       virtual void SYS_Destruct();
 

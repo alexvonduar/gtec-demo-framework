@@ -66,15 +66,19 @@ def WriteFile(filename: str, content: str, newline: Optional[str] = None) -> Non
         theFile.write(content)
 
 
-def WriteFileIfChanged(filename: str, content: str, newline: Optional[str] = None) -> None:
+def WriteFileIfChanged(filename: str, content: str, newline: Optional[str] = None) -> bool:
     existingContent = None
     if os.path.exists(filename):
         if os.path.isfile(filename):
             existingContent = ReadFile(filename)
         else:
             raise IOError("'{0}' exist but it's not a file".format(filename))
-    if content != existingContent:
-        WriteFile(filename, content, newline=newline)
+
+    if content == existingContent:
+        return False
+    WriteFile(filename, content, newline=newline)
+    return True
+
 
 
 def ReadBinaryFile(filename: str) -> bytes:
@@ -106,6 +110,9 @@ def WriteBinaryFileIfChanged(filename: str, content: bytes) -> None:
     if content != existingContent:
         WriteBinaryFile(filename, content)
 
+
+def FileLength(filename: str) -> int:
+    return os.stat(filename).st_size
 
 def SetFileExecutable(filename: str) -> None:
     st = os.stat(filename)
@@ -329,7 +336,7 @@ def GetFilePaths(directory: str, endswithFilter: Optional[Union[str, Tuple[str, 
                 if endswithFilter is None or filename.endswith(endswithFilter):
                     # Join the two strings in order to form the full filepath.
                     filepath = os.path.join(root, filename)
-                    filePaths.append(ToUnixStylePath(filepath))  # Add it to the list.
+                    filePaths.append(NormalizePath(filepath))  # Add it to the list.
     except StopIteration: # Python >2.5
         pass
     return filePaths
@@ -360,7 +367,7 @@ def GetDirectoriesAt(directory: str, absolutePaths: bool) -> List[str]:
             dirpath = path
             if absolutePaths:
                 dirpath = os.path.join(root, path)
-            res.append(ToUnixStylePath(dirpath))
+            res.append(NormalizePath(dirpath))
     except StopIteration: # Python >2.5
         pass
     return res
@@ -431,3 +438,17 @@ def HashFile(filename: str, blocksize: int = 65536) -> str:
             hasher.update(buf)
             buf = theFile.read(blocksize)
         return hasher.hexdigest()
+
+
+def IsDriveRootPath(path: str) -> bool:
+    """
+    Do some basic checks to prevent a path that points to the drive root
+    - This also detects some valid names like "test../" or "/..test"
+    """
+    normPath = NormalizePath(path)
+    drive, tail = os.path.splitdrive(normPath)
+    driveId = NormalizePath(drive).lower()
+    normPathId = normPath.lower()
+    # some basic checks to detect root paths
+    return ('../' in normPath or '/..' in normPath or normPath == '/' or normPath == '..' or normPath == "/." or
+            len(normPath) <= 0 or normPathId == driveId or normPath.endswith('/'))

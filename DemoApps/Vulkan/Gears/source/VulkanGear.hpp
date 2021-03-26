@@ -23,9 +23,9 @@ namespace Fsl
 {
   struct Vertex
   {
-    float Pos[3]{};
-    float Normal[3]{};
-    float Color[3]{};
+    float Pos[3]{};       // NOLINT(modernize-avoid-c-arrays)
+    float Normal[3]{};    // NOLINT(modernize-avoid-c-arrays)
+    float Color[3]{};     // NOLINT(modernize-avoid-c-arrays)
 
     Vertex()
     //: Pos{} // bogus warning in VC2013
@@ -85,8 +85,8 @@ namespace Fsl
 
     Willems::VulkanDevice* m_pVulkanDevice;
 
-    glm::vec3 m_color;
-    glm::vec3 m_pos;
+    glm::vec3 m_color{};
+    glm::vec3 m_pos{};
     float m_rotSpeed = 0.0f;
     float m_rotOffset = 0.0f;
 
@@ -94,13 +94,13 @@ namespace Fsl
     Willems::VulkanBuffer m_indexBuffer;
     uint32_t m_indexCount = 0;
 
-    UBO m_ubo;
+    UBO m_ubo{};
     Willems::VulkanUniformData m_uniformData;
 
   public:
     VkDescriptorSet DescriptorSet;
 
-    VulkanGear(Willems::VulkanDevice* pVulkanDevice);
+    explicit VulkanGear(Willems::VulkanDevice* pVulkanDevice);
     ~VulkanGear();
 
     void Generate(const GearInfo& gearinfo, const VkQueue queue);

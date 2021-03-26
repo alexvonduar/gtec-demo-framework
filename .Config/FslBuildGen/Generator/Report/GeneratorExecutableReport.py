@@ -31,18 +31,18 @@
 #
 #****************************************************************************************************************************************************
 
-from typing import Callable
-from typing import Dict
-from typing import List
+#from typing import Callable
+#from typing import Dict
+#from typing import List
 from typing import Optional
-from typing import Set
-from FslBuildGen.DataTypes import BuildVariantConfig
+#from typing import Set
+#from FslBuildGen.DataTypes import BuildVariantConfig
 from FslBuildGen.Generator.Report.Datatypes import FormatStringEnvironmentVariableResolveMethod
 
 
 class GeneratorExecutableReport(object):
     def __init__(self, useAsRelative: bool, exeFormatString: str, runScript: Optional[str] = None,
-                 environmentVariableResolveMethod: int = FormatStringEnvironmentVariableResolveMethod.Lookup) -> None:
+                 environmentVariableResolveMethod: FormatStringEnvironmentVariableResolveMethod = FormatStringEnvironmentVariableResolveMethod.Lookup) -> None:
         """
             The information stored in a format string can contain both variables and environment variables and
             it need to be formatted/converted using the ReportVariableFormatter before being used.
@@ -75,4 +75,4 @@ class GeneratorExecutableReport(object):
         self.RunScript = runScript
 
         # if set this is the method to use for resolving the exe format string when running
-        self.EnvironmentVariableResolveMethod = environmentVariableResolveMethod  # type: int
+        self.EnvironmentVariableResolveMethod = environmentVariableResolveMethod  # type: FormatStringEnvironmentVariableResolveMethod

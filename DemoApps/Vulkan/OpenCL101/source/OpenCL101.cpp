@@ -30,7 +30,7 @@
  ****************************************************************************************************************************************************/
 
 #include "OpenCL101.hpp"
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslUtil/Vulkan1_0/Exceptions.hpp>
 #include <RapidVulkan/Check.hpp>
 #include <vulkan/vulkan.h>
@@ -50,25 +50,25 @@ namespace Fsl
     cl_int err = clGetPlatformIDs(0, nullptr, &numPlatforms);
     if (err == CL_SUCCESS)
     {
-      FSLLOG("Detected OpenCL platforms: " << numPlatforms);
+      FSLLOG3_INFO("Detected OpenCL platforms: {}", numPlatforms);
     }
     else
     {
-      FSLLOG("Error calling clGetPlatformIDs. Error code: " << err);
+      FSLLOG3_INFO("Error calling clGetPlatformIDs. Error code: {}", err);
     }
   }
 
 
-  void OpenCL101::Update(const DemoTime& demoTime)
+  void OpenCL101::Update(const DemoTime& /*demoTime*/)
   {
   }
 
 
-  void OpenCL101::VulkanDraw(const DemoTime& demoTime, RapidVulkan::CommandBuffers& rCmdBuffers, const VulkanBasic::DrawContext& drawContext)
+  void OpenCL101::VulkanDraw(const DemoTime& /*demoTime*/, RapidVulkan::CommandBuffers& rCmdBuffers, const VulkanBasic::DrawContext& drawContext)
   {
     const uint32_t currentSwapBufferIndex = drawContext.CurrentSwapBufferIndex;
 
-    auto hCmdBuffer = rCmdBuffers[currentSwapBufferIndex];
+    const VkCommandBuffer hCmdBuffer = rCmdBuffers[currentSwapBufferIndex];
     rCmdBuffers.Begin(currentSwapBufferIndex, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT, VK_NULL_HANDLE, 0, VK_NULL_HANDLE, VK_FALSE, 0, 0);
     {
       VkClearColorValue clearColorValue{};
@@ -77,7 +77,7 @@ namespace Fsl
       clearColorValue.float32[2] = 0.5f;
       clearColorValue.float32[3] = 1.0f;
 
-      VkClearValue clearValues[1] = {clearColorValue};
+      VkClearValue clearValues = {clearColorValue};
 
       VkRenderPassBeginInfo renderPassBeginInfo{};
       renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -87,7 +87,7 @@ namespace Fsl
       renderPassBeginInfo.renderArea.offset.y = 0;
       renderPassBeginInfo.renderArea.extent = drawContext.SwapchainImageExtent;
       renderPassBeginInfo.clearValueCount = 1;
-      renderPassBeginInfo.pClearValues = clearValues;
+      renderPassBeginInfo.pClearValues = &clearValues;
 
       rCmdBuffers.CmdBeginRenderPass(currentSwapBufferIndex, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
       {
@@ -100,7 +100,7 @@ namespace Fsl
   }
 
 
-  VkRenderPass OpenCL101::OnBuildResources(const VulkanBasic::BuildResourcesContext& context)
+  VkRenderPass OpenCL101::OnBuildResources(const VulkanBasic::BuildResourcesContext& /*context*/)
   {
     m_dependentResources.MainRenderPass = CreateBasicRenderPass();
     return m_dependentResources.MainRenderPass.Get();

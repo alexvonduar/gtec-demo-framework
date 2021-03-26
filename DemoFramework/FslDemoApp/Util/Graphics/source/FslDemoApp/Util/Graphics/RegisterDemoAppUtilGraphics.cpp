@@ -30,7 +30,7 @@
  ****************************************************************************************************************************************************/
 
 #include <FslDemoApp/Util/Graphics/RegisterDemoAppUtilGraphics.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslDemoApp/Base/Setup/HostDemoAppSetup.hpp>
 #include <FslDemoHost/Base/Service/AsyncImage/AsyncImageServiceImpl.hpp>
 #include <FslDemoHost/Base/Service/AsyncImage/AsyncImageServiceProxy.hpp>
@@ -40,6 +40,7 @@
 #include <FslDemoHost/Base/Service/ServiceGroupName.hpp>
 #include <FslDemoHost/Base/Service/ServicePriorityList.hpp>
 #include <FslService/Impl/Registry/ServiceRegistry.hpp>
+#include <FslDemoHost/Base/Service/Texture/TextureService.hpp>
 #include <FslService/Impl/ServiceType/Async/AsynchronousServiceProxyFactoryTemplate.hpp>
 #include <FslService/Impl/ServiceType/Async/AsynchronousServiceImplFactoryTemplate.hpp>
 #include <FslService/Impl/ServiceType/Async/AsynchronousServiceFactory.hpp>
@@ -68,6 +69,7 @@ namespace Fsl
   using BitmapConverterServiceFactory = ThreadLocalSingletonServiceFactoryTemplate<BitmapConverterService, IBitmapConverter>;
   using ImageServiceFactory = ThreadLocalSingletonServiceFactoryTemplate2<ImageService, IImageService, IImageServiceControl>;
   using ImageBasicServiceFactory = ThreadLocalSingletonServiceFactoryTemplate<ImageBasicService, IImageBasicService>;
+  using TextureServiceFactory = ThreadLocalSingletonServiceFactoryTemplate<TextureService, ITextureService>;
 
 #ifdef FSL_FEATURE_GLI
   using ImageLibraryServiceGLIFactory = ThreadLocalSingletonServiceFactoryTemplate<ImageLibraryGLIService, IImageLibraryService>;
@@ -94,7 +96,7 @@ namespace Fsl
       auto imageServiceGroup = serviceRegistry.GetMainServiceGroup();
       if (useAsyncImage)
       {
-        FSLLOG2(LogType::Verbose, "AsyncImage service enabled");
+        FSLLOG3_VERBOSE("AsyncImage service enabled");
         // Setup all image loading and conversion to run in a separate thread
         imageServiceGroup = serviceRegistry.CreateServiceGroup(ServiceGroupName::Image());
         serviceRegistry.Register(
@@ -107,6 +109,7 @@ namespace Fsl
         serviceRegistry.SetServiceGroupName(imageServiceGroup, ServiceGroupName::Image());
       }
 
+      serviceRegistry.Register<TextureServiceFactory>(ServicePriorityList::TextureService());
 
       // The image service always run on the main thread
       serviceRegistry.Register<ImageServiceFactory>(ServicePriorityList::ImageService());

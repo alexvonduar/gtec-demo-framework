@@ -11,10 +11,15 @@
       <!-- Workaround, as JNIHelper needs GLES. We need to handle JNIHelper differently -->
       <ExternalDependency Name="GLESv3" Type="StaticLib"/>
     </Platform>
-    <Platform Name="QNX" Supported="false"/>
+    <Platform Name="QNX" Supported="true">
+      <!--ExternalDependency Name="vulkan" Include="$(VULKAN_SDK)/include" Access="Public" Type="StaticLib"/-->
+      <FindPackage Name="Vulkan" Version="1.0"/>
+      <Define Name="VK_USE_PLATFORM_SCREEN_QNX" Access="Public"/>
+    </Platform>
     <Platform Name="Ubuntu" Supported="true">
       <Define Name="VK_USE_PLATFORM_XLIB_KHR" Access="Public"/>
-      <ExternalDependency Name="vulkan" Include="$(VULKAN_SDK)/include" Access="Public" Type="StaticLib"/>
+      <FindPackage Name="Vulkan" Version="1.0"/>
+      <ExternalDependency Name="vulkan" Include="$(VULKAN_SDK)/include" Access="Public" Type="StaticLib" If="!AllowFindPackage"/>
     </Platform>
     <Platform Name="Windows" Supported="true">
       <Dependency Name="Recipe.Vulkan"/>
@@ -22,9 +27,6 @@
     </Platform>
     <Platform Name="Yocto" Supported="true">
       <ExternalDependency Name="vulkan" Type="StaticLib"/>
-    </Platform>
-    <Platform Name="CMake" Supported="true">
-      <ExternalDependency Name="Vulkan" Type="Find"/>
     </Platform>
   </ExternalLibrary>
 </FslBuildGen>

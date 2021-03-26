@@ -30,23 +30,34 @@
  ****************************************************************************************************************************************************/
 
 #include <FslDemoApp/OpenGLES2/Setup/RegisterDemoApp.hpp>
+#include <Shared/T3DStressTest/OptionParser.hpp>
 #include <EGL/egl.h>
 #include "T3DStressTest.hpp"
-#include "OptionParser.hpp"
+#include <array>
 
 namespace Fsl
 {
+  class CustomOptionParser : public OptionParser
+  {
+  public:
+    CustomOptionParser()
+      : OptionParser(RenderMode::MultiPass)
+    {
+    }
+  };
+
+
   namespace
   {
     // Custom EGL config (these will per default overwrite the custom settings. However a exact EGL config can be used)
-    const EGLint g_eglConfigAttribs[] = {EGL_NONE};
+    const std::array<EGLint, 1> g_eglConfigAttribs = {EGL_NONE};
   }
 
   // Configure the demo environment to run this demo app in a OpenGLES2 host environment
   void ConfigureDemoAppEnvironment(HostDemoAppSetup& rSetup)
   {
-    DemoAppHostConfigEGL config(g_eglConfigAttribs);
+    DemoAppHostConfigEGL config(g_eglConfigAttribs.data());
 
-    DemoAppRegister::GLES2::Register<T3DStressTest, OptionParser>(rSetup, "GLES2.T3DStressTest", config);
+    DemoAppRegister::GLES2::Register<T3DStressTest, CustomOptionParser>(rSetup, "GLES2.T3DStressTest", config);
   }
 }

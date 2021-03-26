@@ -60,8 +60,8 @@ namespace Fsl
 
     struct UboVS
     {
-      glm::mat4 Projection;
-      glm::mat4 View;
+      glm::mat4 Projection{};
+      glm::mat4 View{};
       float Time = 0.0f;
     };
 
@@ -90,7 +90,7 @@ namespace Fsl
     VkDescriptorSet m_descriptorSet;
 
   public:
-    MeshInstancing(const DemoAppConfig& config);
+    explicit MeshInstancing(const DemoAppConfig& config);
     ~MeshInstancing() override;
 
   protected:

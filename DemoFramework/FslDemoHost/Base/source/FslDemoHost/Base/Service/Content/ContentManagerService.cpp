@@ -29,39 +29,43 @@
  *
  ****************************************************************************************************************************************************/
 
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslBase/Exceptions.hpp>
 #include <FslBase/IO/File.hpp>
 #include <FslBase/IO/Path.hpp>
+#include <FslBase/Log/IO/FmtPath.hpp>
 #include <FslDemoApp/Base/Service/Image/IImageService.hpp>
+#include <FslDemoApp/Base/Service/Texture/ITextureService.hpp>
 #include <FslDemoHost/Base/Service/Content/ContentManagerService.hpp>
 #include <FslGraphics/Font/BinaryFontBasicKerningLoader.hpp>
+#include <FslGraphics/Font/BitmapFontDecoder.hpp>
+#include <FslGraphics/PixelFormatUtil.hpp>
 #include <FslGraphics/TextureAtlas/BasicTextureAtlas.hpp>
 #include <FslGraphics/TextureAtlas/BinaryTextureAtlasLoader.hpp>
+#include <fmt/format.h>
 #include <cassert>
 #include <limits>
-#include <sstream>
 
 namespace Fsl
 {
   namespace
   {
-    const IO::Path ToAbsolutePath(const IO::Path& trustedAbsPath, const IO::Path& notTrustedRelativePath)
+    IO::Path ToAbsolutePath(const IO::Path& trustedAbsPath, const IO::Path& notTrustedRelativePath)
     {
       assert(!trustedAbsPath.IsEmpty());
 
       // Do a lot of extra validation
       if (notTrustedRelativePath.IsEmpty())
       {
-        throw std::invalid_argument(std::string("path is invalid: ") + notTrustedRelativePath.ToAsciiString());
+        throw std::invalid_argument(fmt::format("path is invalid: '{}'", notTrustedRelativePath));
       }
       if (IO::Path::IsPathRooted(notTrustedRelativePath))
       {
-        throw std::invalid_argument(std::string("not a relative path: ") + notTrustedRelativePath.ToAsciiString());
+        throw std::invalid_argument(fmt::format("not a relative path: '{}'", notTrustedRelativePath));
       }
       if (notTrustedRelativePath.Contains(".."))
       {
-        throw std::invalid_argument(std::string("\"..\" not allowed in the relative path: ") + notTrustedRelativePath.ToAsciiString());
+        throw std::invalid_argument(fmt::format("\"..\" not allowed in the relative path: '{}'", notTrustedRelativePath));
       }
 
       return IO::Path::Combine(trustedAbsPath, notTrustedRelativePath);
@@ -71,11 +75,12 @@ namespace Fsl
   ContentManagerService::ContentManagerService(const ServiceProvider& serviceProvider, const IO::Path& contentPath)
     : ThreadLocalService(serviceProvider)
     , m_contentPath(contentPath)
-    , m_imageService(serviceProvider.TryGet<IImageService>())    // Try to acquire the image service so we can use it if its available.
+    , m_imageService(serviceProvider.TryGet<IImageService>())        // Try to acquire the image service so we can use it if its available.
+    , m_textureService(serviceProvider.TryGet<ITextureService>())    // Try to acquire the texture service so we can use it if its available.
   {
     if (!IO::Path::IsPathRooted(m_contentPath))
     {
-      FSLLOG_WARNING("The supplied path is not rooted '" << contentPath.ToAsciiString() << "'");
+      FSLLOG3_WARNING("The supplied path is not rooted '{}'", contentPath);
     }
   }
 
@@ -108,9 +113,7 @@ namespace Fsl
     const auto length = IO::File::GetLength(absPath);
     if (length > std::numeric_limits<uint32_t>::max())
     {
-      std::stringstream strstream;
-      strstream << "File '" << absPath.ToAsciiString() << "' was larger than 4GB, which is unsupported";
-      throw IOException(strstream.str());
+      throw IOException(fmt::format(" File '{}' was larger than 4GB, which is unsupported ", absPath));
     }
     return length;
   }
@@ -127,6 +130,13 @@ namespace Fsl
   {
     const IO::Path absPath(ToAbsolutePath(m_contentPath, relativePath));
     IO::File::ReadAllBytes(rTargetArray, absPath);
+  }
+
+
+  std::vector<uint8_t> ContentManagerService::ReadAllBytes(const IO::Path& relativePath) const
+  {
+    const IO::Path absPath(ToAbsolutePath(m_contentPath, relativePath));
+    return IO::File::ReadAllBytes(absPath);
   }
 
 
@@ -169,10 +179,30 @@ namespace Fsl
 
 
   void ContentManagerService::Read(Texture& rTexture, const IO::Path& relativePath, const PixelFormat desiredPixelFormat,
-                                   const BitmapOrigin desiredOrigin, const PixelChannelOrder preferredChannelOrder) const
+                                   const BitmapOrigin desiredOrigin, const PixelChannelOrder preferredChannelOrder,
+                                   const bool generateMipMapsHint) const
   {
     const IO::Path absPath(ToAbsolutePath(m_contentPath, relativePath));
     m_imageService->Read(rTexture, absPath, desiredPixelFormat, desiredOrigin, preferredChannelOrder);
+    if (generateMipMapsHint)
+    {
+      if (m_textureService)
+      {
+        Optional<Texture> res = m_textureService->TryGenerateMipMaps(rTexture, TextureMipMapFilter::Box);
+        if (res.HasValue())
+        {
+          rTexture = std::move(*res);
+        }
+        else
+        {
+          FSLLOG3_VERBOSE5("ITextureService could not generate mipmaps");
+        }
+      }
+      else
+      {
+        FSLLOG3_VERBOSE5("Can not generate mipmaps as the ITextureService is not available");
+      }
+    }
   }
 
 
@@ -189,6 +219,17 @@ namespace Fsl
     BinaryFontBasicKerningLoader::Load(rFontKerning, absPath);
   }
 
+
+  void ContentManagerService::Read(BitmapFont& rBitmapFont, const IO::Path& relativePath) const
+  {
+    rBitmapFont = ReadBitmapFont(relativePath);
+  }
+
+  BitmapFont ContentManagerService::ReadBitmapFont(const IO::Path& relativePath) const
+  {
+    const IO::Path absPath(ToAbsolutePath(m_contentPath, relativePath));
+    return BitmapFontDecoder::Load(absPath);
+  }
 
   bool ContentManagerService::TryReadAllText(std::string& rText, const IO::Path& relativePath) const
   {
@@ -224,10 +265,10 @@ namespace Fsl
 
 
   Texture ContentManagerService::ReadTexture(const IO::Path& relativePath, const PixelFormat desiredPixelFormat, const BitmapOrigin desiredOrigin,
-                                             const PixelChannelOrder preferredChannelOrder) const
+                                             const PixelChannelOrder preferredChannelOrder, const bool generateMipMapsHint) const
   {
     Texture texture;
-    Read(texture, relativePath, desiredPixelFormat, desiredOrigin, preferredChannelOrder);
+    Read(texture, relativePath, desiredPixelFormat, desiredOrigin, preferredChannelOrder, generateMipMapsHint);
     return texture;
   }
 }

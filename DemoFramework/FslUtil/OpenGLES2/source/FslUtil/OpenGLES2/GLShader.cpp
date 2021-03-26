@@ -29,11 +29,11 @@
  *
  ****************************************************************************************************************************************************/
 
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslUtil/OpenGLES2/Exceptions.hpp>
 #include <FslUtil/OpenGLES2/GLCheck.hpp>
 #include <FslUtil/OpenGLES2/GLShader.hpp>
-
+#include <array>
 #include <algorithm>
 #include <iostream>
 #include <vector>
@@ -50,13 +50,13 @@ namespace Fsl
         // want to throw a exception in a debug function.
 
         // Get shader source.
-        GLint length;
+        GLint length = 0;
         GL_ON_ERROR_LOG_AND_RETURN(glGetShaderiv(hShader, GL_SHADER_SOURCE_LENGTH, &length));
         std::vector<GLchar> source(std::max(length, 1));
         source[0] = 0;
         GL_ON_ERROR_LOG_AND_RETURN(glGetShaderSource(hShader, static_cast<GLsizei>(source.size()), nullptr, &source[0]));
 
-        FSLLOG("*** Source start ***\n" << &source[0] << "\n*** Source end ***\n\n");
+        FSLLOG3_INFO("*** Source start ***\n{}\n*** Source end ***\n\n", &source[0]);
 
         // Fetch the log
         GL_ON_ERROR_LOG_AND_RETURN(glGetShaderiv(hShader, GL_INFO_LOG_LENGTH, &length));
@@ -64,7 +64,7 @@ namespace Fsl
         errorLog[0] = 0;
         GL_ON_ERROR_LOG_AND_RETURN(glGetShaderInfoLog(hShader, static_cast<GLsizei>(errorLog.size()), nullptr, &errorLog[0]));
 
-        FSLLOG("*** Error log start ***\n" << &errorLog[0] << "\n*** Error Log End ***\n\n");
+        FSLLOG3_INFO("*** Error log start ***\n{}\n*** Error Log End ***\n\n", &errorLog[0]);
       }
     }
 
@@ -115,9 +115,9 @@ namespace Fsl
         throw GLESGraphicsException("Failed to create shader", glError, __FILE__, __LINE__);
       }
 
-      const char* shaderCode[1] = {strShaderCode.c_str()};
+      std::array<const char*, 1> shaderCode = {strShaderCode.c_str()};
 
-      GL_CHECK(glShaderSource(m_handle, 1, shaderCode, nullptr));
+      GL_CHECK(glShaderSource(m_handle, static_cast<GLsizei>(shaderCode.size()), shaderCode.data(), nullptr));
       shaderCode[0] = nullptr;
 
       // Compile the shader now

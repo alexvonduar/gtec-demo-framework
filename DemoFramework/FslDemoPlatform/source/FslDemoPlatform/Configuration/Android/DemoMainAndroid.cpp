@@ -40,7 +40,7 @@
 #include <android/native_window_jni.h>
 #include <FslBase/IO/Path.hpp>
 #include <FslBase/ITag.hpp>
-#include <FslBase/Log/Log.hpp>
+#include <FslBase/Log/Log3Fmt.hpp>
 #include <FslNativeWindow/Platform/Android/PlatformNativeWindowSystemAndroidTag.hpp>
 #include <FslDemoPlatform/DemoRunner.hpp>
 #include "NDKHelper.h"
@@ -53,13 +53,15 @@ namespace Fsl
 {
   int AndroidMain(android_app* state, const char* const pszHelperClassName)
   {
+    // LogConfig::SetLogLevel(LogType::Verbose4);
+
     // Init helper functions
     ndk_helper::JNIHelper::Init(state->activity, pszHelperClassName);
     JNIUtil::Init(state->activity, SYNC_CLASS_NAME);
 
     const std::string externalFilesDir = ndk_helper::JNIHelper::GetInstance()->GetExternalFilesDir();
 
-    const IO::Path baseDir = JNIUtil::GetInstance()->SyncNow();
+    const IO::Path baseDir(JNIUtil::GetInstance()->SyncNow());
     const IO::Path contentDir = IO::Path::Combine(baseDir, "fsl-content");
     const IO::Path saveDir = IO::Path::Combine(baseDir, "fsl-save");
 
